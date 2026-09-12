@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getMeeting, getTranscript, getAnalytics } from '@/lib/data';
+import { getMeeting, getTranscript, getAnalytics, getSummaries } from '@/lib/data';
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -11,8 +11,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
     const transcript = await getTranscript(id);
     const analytics = await getAnalytics(id);
+    const summaries = await getSummaries(id);
 
-    return NextResponse.json({ meeting, transcript, analytics });
+    return NextResponse.json({ meeting, transcript, analytics, summaries });
   } catch (err: any) {
     return NextResponse.json({ error: String(err) }, { status: 500 });
   }

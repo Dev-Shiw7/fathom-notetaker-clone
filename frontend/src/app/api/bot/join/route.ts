@@ -29,8 +29,8 @@ export async function POST(request: Request) {
     }
 
     // Spawn bot process
-    // The bot is in /apps/bot, so we need to go up from /apps/web
-    const botDir = resolve(process.cwd(), '../../bot');
+    // The bot is in /backend, so we need to go up from /frontend
+    const botDir = resolve(process.cwd(), '../backend');
     
     const botProcess = spawn('npx', ['tsx', 'src/index.ts', 'join', '--url', meetingUrl, '--name', botName], {
       cwd: botDir,

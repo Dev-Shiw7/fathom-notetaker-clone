@@ -7,9 +7,10 @@ interface Props {
   meetings: Meeting[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  onSearchClick?: () => void;
 }
 
-export default function MeetingList({ meetings, selectedId, onSelect }: Props) {
+export default function MeetingList({ meetings, selectedId, onSelect, onSearchClick }: Props) {
   return (
     <div style={{width:280}}>
       <aside className="sidebar">
@@ -18,7 +19,13 @@ export default function MeetingList({ meetings, selectedId, onSelect }: Props) {
           <div className="brand-name">Recap</div>
         </div>
         <div style={{padding: '0 16px 12px 16px'}}>
-          <input id="globalSearchSmall" placeholder="Ask Recap anything…" style={{width: '100%', padding:8, borderRadius:8, border:'1px solid #e6e8f0'}} />
+          <input
+            id="globalSearchSmall"
+            placeholder="Search all meetings… ⌘K"
+            readOnly
+            onClick={onSearchClick}
+            style={{width: '100%', padding:8, borderRadius:8, border:'1px solid #e6e8f0', cursor: 'pointer'}}
+          />
         </div>
         <div style={{padding: '0 16px 12px 16px'}}>
           <button className="new-btn" onClick={() => alert('Recording is stubbed in this demo')}>＋ Record a meeting</button>
