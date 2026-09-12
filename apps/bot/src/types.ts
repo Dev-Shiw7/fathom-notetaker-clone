@@ -90,6 +90,15 @@ export interface EventPayloads {
   };
   'prejoin.name_set': { name: string };
   'join.requested': Record<string, never>;
+  /**
+   * Whether the page actually reacted to the join click. `join.requested` only
+   * records that a click was dispatched; this records what Meet did about it.
+   */
+  'join.confirmed': {
+    confirmation: 'WAITING' | 'IN_CALL' | 'NOT_REGISTERED' | 'UNCONFIRMED';
+    elapsedMs: number;
+    screenshotPath: string | null;
+  };
   'admission.granted': { waitedMs: number };
   'admission.denied': { waitedMs: number };
   'admission.timeout': { waitedMs: number };

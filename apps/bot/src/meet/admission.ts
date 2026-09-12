@@ -11,8 +11,51 @@ import type { AdmissionResult } from '../types.js';
 import {
   INCALL_LEAVE_BUTTON,
   LANDING_DENIED_ENTRY,
+  PREJOIN_JOIN_BUTTON,
+  WAITING_INDICATOR,
   isPresent,
 } from './selectors.js';
+
+/** What the page shows after the join button was clicked. */
+export type JoinConfirmation =
+  /** "Asking to be let in" — the host should now see a prompt. */
+  | 'WAITING'
+  /** Straight into the call, no waiting room. */
+  | 'IN_CALL'
+  /** The join button is still sitting there; the click did not register. */
+  | 'NOT_REGISTERED'
+  /** Neither confirmed nor refuted — page moved somewhere unrecognised. */
+  | 'UNCONFIRMED';
+
+/**
+ * Verifies that clicking "Ask to join" actually did something.
+ *
+ * A Playwright click resolving successfully only means it dispatched an event
+ * at an element — not that Meet acted on it. Reporting `join.requested` off the
+ * click alone made the bot claim it had asked to join when the host saw no
+ * prompt at all, which is the difference between "nobody admitted us" and "we
+ * never knocked". Those need different fixes, so the bot has to tell them
+ * apart.
+ */
+export async function confirmJoinRequested(
+  page: Page,
+  timeoutMs = 15_000,
+): Promise<JoinConfirmation> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (page.isClosed()) return 'UNCONFIRMED';
+
+    if (await isPresent(page, INCALL_LEAVE_BUTTON)) return 'IN_CALL';
+    if (await isPresent(page, WAITING_INDICATOR)) return 'WAITING';
+
+    await page.waitForTimeout(750).catch(() => {});
+  }
+
+  // Still looking at the join button means the click never took effect.
+  if (await isPresent(page, PREJOIN_JOIN_BUTTON)) return 'NOT_REGISTERED';
+  return 'UNCONFIRMED';
+}
 
 export async function waitForAdmission(
   page: Page,

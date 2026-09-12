@@ -18,7 +18,7 @@ import {
   requestJoin,
   setDisplayName,
 } from './meet/prejoin.js';
-import { waitForAdmission } from './meet/admission.js';
+import { confirmJoinRequested, waitForAdmission } from './meet/admission.js';
 import { detectExit, getParticipantCount, leaveCall } from './meet/incall.js';
 import { announce } from './meet/chat.js';
 import {
@@ -146,6 +146,32 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
       return await finish('COULD_NOT_JOIN', ExitCode.CANNOT_JOIN);
     }
     log.emit('join.requested', {});
+
+    // The click not throwing is not evidence that Meet acted on it. Confirm
+    // against the page, and capture what it looked like either way — this is
+    // what distinguishes "nobody admitted us" from "we never knocked".
+    const confirmStart = Date.now();
+    const confirmation = await confirmJoinRequested(page);
+    const confirmShot = await artifacts.screenshot(
+      page,
+      `after-join-click-${confirmation}`,
+    );
+    log.emit('join.confirmed', {
+      confirmation,
+      elapsedMs: Date.now() - confirmStart,
+      screenshotPath: confirmShot,
+    });
+
+    if (confirmation === 'NOT_REGISTERED' || confirmation === 'UNCONFIRMED') {
+      await artifacts.domSnapshot(page, `join-${confirmation}`);
+      log.emit('warn', {
+        message: 'Join click did not visibly register with Meet',
+        detail:
+          confirmation === 'NOT_REGISTERED'
+            ? 'The join button is still on screen — the host will not have seen a prompt'
+            : 'Page moved somewhere unrecognised after the join click',
+      });
+    }
 
     // ---- Waiting room ---------------------------------------------------
     setState('WAITING_ROOM');
