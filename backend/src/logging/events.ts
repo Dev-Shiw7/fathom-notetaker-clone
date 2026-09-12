@@ -73,6 +73,8 @@ const HUMAN_HINTS: Partial<Record<EventType, string>> = {
   'admission.denied': '✗',
   'admission.timeout': '⏱',
   'consent.disclosed': '💬',
+  'summary.delay.started': '⏳',
+  'summary.delivered': '📝',
   'leave.completed': '←',
   'session.ended': '■',
   'selector.miss': '⚠',

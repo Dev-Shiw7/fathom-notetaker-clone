@@ -20,8 +20,9 @@ import {
 } from './meet/prejoin.js';
 import { confirmJoinRequested, waitForAdmission } from './meet/admission.js';
 import { detectExit, getParticipantCount, leaveCall } from './meet/incall.js';
-import { announce } from './meet/chat.js';
+import { announce, postSummary } from './meet/chat.js';
 import { recordStubTranscript } from './recording.js';
+import { formatSummaryForChat } from './summary-delivery.js';
 import {
   ExitCode,
   type BotState,
@@ -250,6 +251,36 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
     }
 
     const reason = await monitorCall(page, options, joinedAt, interrupt, log);
+
+    // ---- Deliver summary -------------------------------------------------
+    // Posted from inside the call, because chat is unreachable once we leave.
+    // A Ctrl-C mid-hold skips straight to leaving: the user asked the bot to
+    // get out, and holding a browser open to finish a chat post ignores that.
+    if (options.summaryChat && !interrupt.requested) {
+      if (options.summaryDelayMs > 0) {
+        log.emit('summary.delay.started', {
+          delayMs: options.summaryDelayMs,
+          reason,
+        });
+        await page.waitForTimeout(options.summaryDelayMs).catch(() => {});
+      }
+
+      const lines = formatSummaryForChat(summary, {
+        botName: options.botName,
+        appUrl: options.appUrl,
+      });
+      const { sent, total } = await postSummary(page, lines);
+
+      if (sent === total) {
+        log.emit('summary.delivered', { channel: 'chat', messages: sent });
+      } else {
+        // Partial delivery is a real outcome, not a success with a caveat.
+        log.emit('warn', {
+          message: 'Summary was not fully posted to chat',
+          detail: `Sent ${sent} of ${total} messages`,
+        });
+      }
+    }
 
     // ---- Leave -----------------------------------------------------------
     setState('LEAVING');

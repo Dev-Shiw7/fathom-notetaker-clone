@@ -16,39 +16,69 @@ import {
   resolveFirst,
 } from './selectors.js';
 
-export async function announce(page: Page, message: string): Promise<boolean> {
-  if (page.isClosed()) return false;
+/**
+ * Posts one or more messages, opening and closing the chat panel once.
+ *
+ * Meet's composer is a contenteditable: a `\n` inside a single fill either
+ * submits early or is swallowed, so anything multi-line is sent as separate
+ * messages rather than one block. Returns how many were actually sent, so a
+ * partial delivery is reportable instead of rounding up to success.
+ */
+async function post(page: Page, messages: string[]): Promise<number> {
+  if (page.isClosed() || messages.length === 0) return 0;
 
   const chatButton = await resolveFirst(page, INCALL_CHAT_BUTTON, 4_000);
-  if (!chatButton) return false;
+  if (!chatButton) return 0;
 
   try {
     await chatButton.locator.click({ timeout: 3_000 });
   } catch {
-    return false;
+    return 0;
   }
 
   const input = await resolveFirst(page, INCALL_CHAT_INPUT, 5_000);
-  if (!input) return false;
+  if (!input) return 0;
 
-  try {
-    await input.locator.fill(message, { timeout: 3_000 });
+  let sent = 0;
+  for (const message of messages) {
+    try {
+      await input.locator.fill(message, { timeout: 3_000 });
 
-    // Prefer the explicit send control; Enter is the fallback because on some
-    // Meet versions it inserts a newline instead of sending.
-    const send = await resolveFirst(page, INCALL_CHAT_SEND, 1_000);
-    if (send) {
-      await send.locator.click({ timeout: 3_000 });
-    } else {
-      await input.locator.press('Enter', { timeout: 3_000 });
+      // Prefer the explicit send control; Enter is the fallback because on some
+      // Meet versions it inserts a newline instead of sending.
+      const send = await resolveFirst(page, INCALL_CHAT_SEND, 1_000);
+      if (send) {
+        await send.locator.click({ timeout: 3_000 });
+      } else {
+        await input.locator.press('Enter', { timeout: 3_000 });
+      }
+
+      await page.waitForTimeout(500);
+      sent += 1;
+    } catch {
+      break;
     }
-
-    await page.waitForTimeout(500);
-
-    // Close the panel so it doesn't obscure the controls we poll later.
-    await chatButton.locator.click({ timeout: 2_000 }).catch(() => {});
-    return true;
-  } catch {
-    return false;
   }
+
+  // Close the panel so it doesn't obscure the controls we poll later.
+  await chatButton.locator.click({ timeout: 2_000 }).catch(() => {});
+  return sent;
+}
+
+export async function announce(page: Page, message: string): Promise<boolean> {
+  return (await post(page, [message])) === 1;
+}
+
+/**
+ * Posts the end-of-meeting summary into chat, one line per message.
+ *
+ * Delivery happens while the bot is still in the call, because chat is only
+ * reachable from inside it — see `formatSummaryForChat` for why that is the
+ * channel. Partial sends are reported as such by the caller.
+ */
+export async function postSummary(
+  page: Page,
+  lines: string[],
+): Promise<{ sent: number; total: number }> {
+  return { sent: await post(page, lines), total: lines.length };
 }

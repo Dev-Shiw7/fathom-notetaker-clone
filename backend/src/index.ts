@@ -10,6 +10,7 @@
 import { ConfigError, USAGE, parseCommand } from './config.js';
 import { runDoctor } from './doctor.js';
 import { runJoin } from './session.js';
+import { runWatch } from './watch.js';
 import { ExitCode } from './types.js';
 
 async function main(): Promise<number> {
@@ -32,6 +33,8 @@ async function main(): Promise<number> {
       return runDoctor(command.options);
     case 'join':
       return runJoin(command.options);
+    case 'watch':
+      return runWatch(command.options);
   }
 }
 

@@ -12,6 +12,7 @@ import { usePathname } from 'next/navigation';
  */
 const LINKS = [
   { href: '/', label: 'Meetings' },
+  { href: '/settings', label: 'Calendar & bot' },
   { href: '/design', label: 'Design system' },
 ];
 

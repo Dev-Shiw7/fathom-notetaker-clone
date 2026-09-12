@@ -188,6 +188,75 @@ export interface UpcomingMeeting {
   botWillJoin: boolean;
 }
 
+/**
+ * A unit of work for the capture bot.
+ *
+ * The deployed app cannot start a browser, and cannot reach a machine that can
+ * — so it never pushes. It writes a job here and a bot running somewhere with
+ * Chrome claims it on its next poll. That inversion is what lets the bot sit
+ * behind NAT on a laptop with no inbound connectivity.
+ */
+export type BotJobStatus =
+  | 'queued'
+  | 'claimed'
+  | 'joining'
+  | 'recording'
+  | 'done'
+  | 'failed'
+  | 'cancelled';
+
+export interface BotJob {
+  id: string;
+  meetingUrl: string;
+  meetingCode: string | null;
+  botName: string;
+  status: BotJobStatus;
+  /** Where the job came from, for the UI to explain itself. */
+  source: 'manual' | 'calendar';
+  /** Set for calendar-sourced jobs so re-syncs don't duplicate them. */
+  calendarEventId: string | null;
+  title: string | null;
+  /** Do not claim before this instant — lets calendar jobs be queued ahead. */
+  notBefore: string;
+  createdAt: string;
+  claimedAt: string | null;
+  finishedAt: string | null;
+  /** Identifies which bot took it, for debugging concurrent runners. */
+  claimedBy: string | null;
+  lastMessage: string | null;
+  /** Meeting produced by this job, once the bot posts results back. */
+  resultMeetingId: string | null;
+}
+
+/**
+ * A subscribed calendar.
+ *
+ * Stores an iCal URL rather than OAuth tokens. Google, Outlook and Apple all
+ * expose a private .ics address, which means no cloud project, no consent
+ * screen, and no sensitive-scope verification before a stranger can use it.
+ */
+export interface CalendarConnection {
+  id: string;
+  label: string;
+  icsUrl: string;
+  connectedAt: string;
+  lastSyncedAt: string | null;
+  lastSyncError: string | null;
+  /** Auto-queue the bot for events that carry a meeting link. */
+  autoJoin: boolean;
+}
+
+/** An event parsed out of a subscribed calendar. */
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt: string;
+  meetingUrl: string | null;
+  attendeeNames: string[];
+  organizer: string | null;
+}
+
 export interface SearchHit {
   meetingId: string;
   meetingTitle: string;

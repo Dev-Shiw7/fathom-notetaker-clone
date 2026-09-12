@@ -21,6 +21,12 @@ export interface JoinOptions {
   maxDurationMs: number;
   chatAnnounce: boolean;
   consentMessage: string;
+  /** Post the end-of-meeting summary into chat before leaving. */
+  summaryChat: boolean;
+  /** How long to hold after the call winds down before posting the summary. */
+  summaryDelayMs: number;
+  /** App URL to link from the summary; absent means no link is posted. */
+  appUrl: string | undefined;
   headless: boolean;
   keepOpen: boolean;
   /** Abort instead of warning when the UI mute can't be verified. */
@@ -41,6 +47,7 @@ export interface DoctorOptions {
 export type Command =
   | { kind: 'join'; options: JoinOptions }
   | { kind: 'doctor'; options: DoctorOptions }
+  | { kind: 'watch'; options: import('./watch.js').WatchOptions }
   | { kind: 'help' };
 
 export const DEFAULTS = {
@@ -49,9 +56,14 @@ export const DEFAULTS = {
   admissionTimeoutSec: 300,
   aloneTimeoutSec: 120,
   maxDurationSec: 10800,
+  /** How often a runner asks the queue for work. */
+  pollIntervalSec: 10,
   consentMessage:
     "Hi! I'm Notetaker, an AI assistant that takes notes for this meeting. " +
     'This meeting is being transcribed. Ask the host to remove me if you prefer not to be recorded.',
+  // Long enough to read as "after the meeting", short enough that the bot is
+  // not sitting in an empty call burning a browser process.
+  summaryDelaySec: 120,
 } as const;
 
 const MEET_CODE_PATTERN = /^[a-z]{3}-[a-z]{4}-[a-z]{3}$/;
@@ -106,13 +118,27 @@ function seconds(value: string | undefined, fallback: number, flag: string): num
   return Math.round(parsed * 1000);
 }
 
+/** As `seconds`, but zero is allowed — see `--summary-delay`. */
+function nonNegativeSeconds(
+  value: string | undefined,
+  fallback: number,
+  flag: string,
+): number {
+  if (value === undefined) return fallback * 1000;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    throw new ConfigError(`${flag} must be a non-negative number of seconds`);
+  }
+  return Math.round(parsed * 1000);
+}
+
 export function parseCommand(argv: string[]): Command {
   const [sub, ...rest] = argv;
 
   if (!sub || sub === 'help' || sub === '--help' || sub === '-h') {
     return { kind: 'help' };
   }
-  if (sub !== 'join' && sub !== 'doctor') {
+  if (sub !== 'join' && sub !== 'doctor' && sub !== 'watch') {
     throw new ConfigError(`Unknown command: ${sub}`);
   }
 
@@ -129,15 +155,92 @@ export function parseCommand(argv: string[]): Command {
         'max-duration': { type: 'string' },
         'consent-message': { type: 'string' },
         'no-chat-announce': { type: 'boolean', default: false },
+        'no-summary-chat': { type: 'boolean', default: false },
+        'summary-delay': { type: 'string' },
+        'app-url': { type: 'string' },
         'require-muted': { type: 'boolean', default: false },
         profile: { type: 'string' },
         headless: { type: 'boolean', default: false },
         'keep-open': { type: 'boolean', default: false },
+        // watch only
+        api: { type: 'string' },
+        token: { type: 'string' },
+        runner: { type: 'string' },
+        interval: { type: 'string' },
       },
       strict: true,
     }));
   } catch (err) {
     throw new ConfigError((err as Error).message);
+  }
+
+  // `watch` takes no --url: it receives meeting links from the queue, which is
+  // the entire point of it. Handled before the URL is parsed for that reason.
+  if (sub === 'watch') {
+    const apiUrl =
+      (typeof values.api === 'string' && values.api.trim()) ||
+      process.env.APP_URL ||
+      'http://localhost:3000';
+    const token =
+      (typeof values.token === 'string' && values.token.trim()) ||
+      process.env.BOT_TOKEN ||
+      '';
+
+    if (!token) {
+      throw new ConfigError(
+        'A runner token is required: pass --token or set BOT_TOKEN. It must ' +
+          'match the BOT_TOKEN configured on the server, or the queue will ' +
+          'refuse to hand out work.',
+      );
+    }
+
+    return {
+      kind: 'watch',
+      options: {
+        apiUrl,
+        token,
+        runner: typeof values.runner === 'string' ? values.runner : '',
+        pollIntervalMs: seconds(
+          values.interval as string | undefined,
+          DEFAULTS.pollIntervalSec,
+          '--interval',
+        ),
+        outDir: resolve(
+          typeof values.out === 'string' ? values.out : DEFAULTS.outDir,
+        ),
+        headless: values.headless === true,
+        profileDir:
+          typeof values.profile === 'string' && values.profile.trim()
+            ? resolve(values.profile.trim())
+            : undefined,
+        admissionTimeoutMs: seconds(
+          values['admission-timeout'] as string | undefined,
+          DEFAULTS.admissionTimeoutSec,
+          '--admission-timeout',
+        ),
+        aloneTimeoutMs: seconds(
+          values['alone-timeout'] as string | undefined,
+          DEFAULTS.aloneTimeoutSec,
+          '--alone-timeout',
+        ),
+        maxDurationMs: seconds(
+          values['max-duration'] as string | undefined,
+          DEFAULTS.maxDurationSec,
+          '--max-duration',
+        ),
+        chatAnnounce: values['no-chat-announce'] !== true,
+        consentMessage:
+          typeof values['consent-message'] === 'string' &&
+          values['consent-message'].trim()
+            ? values['consent-message'].trim()
+            : DEFAULTS.consentMessage,
+        summaryDelayMs: nonNegativeSeconds(
+          values['summary-delay'] as string | undefined,
+          DEFAULTS.summaryDelaySec,
+          '--summary-delay',
+        ),
+      },
+    };
   }
 
   const rawUrl = typeof values.url === 'string' ? values.url : '';
@@ -194,6 +297,18 @@ export function parseCommand(argv: string[]): Command {
         '--max-duration',
       ),
       chatAnnounce: values['no-chat-announce'] !== true,
+      summaryChat: values['no-summary-chat'] !== true,
+      // Unlike the timeouts, zero is meaningful here — it means "post the
+      // summary immediately", which is what you want when demoing.
+      summaryDelayMs: nonNegativeSeconds(
+        values['summary-delay'] as string | undefined,
+        DEFAULTS.summaryDelaySec,
+        '--summary-delay',
+      ),
+      appUrl:
+        typeof values['app-url'] === 'string' && values['app-url'].trim()
+          ? values['app-url'].trim()
+          : undefined,
       consentMessage:
         typeof values['consent-message'] === 'string' &&
         values['consent-message'].trim()
@@ -213,10 +328,21 @@ notetaker-bot — Google Meet notetaker bot
 USAGE
   notetaker-bot join   --url <meetUrl> [options]
   notetaker-bot doctor --url <meetUrl> [options]
+  notetaker-bot watch  --api <appUrl>  [options]
 
 COMMANDS
   join      Join a meeting, announce, monitor, and leave cleanly
   doctor    Report which Meet DOM selectors currently resolve
+  watch     Poll the app's queue and run whatever meetings it hands back.
+            The deployed app has no browser and no route to one, so it never
+            starts a bot — it queues work, and this claims it. Every request
+            is outbound, so this runs fine on a laptop behind NAT.
+
+WATCH OPTIONS
+  --api <url>                  App to poll            (or APP_URL, default localhost:3000)
+  --token <secret>             Runner token           (or BOT_TOKEN, required)
+  --runner <name>              Identifies this runner (default: hostname-pid)
+  --interval <sec>             Poll interval          (default: ${DEFAULTS.pollIntervalSec})
 
 OPTIONS
   --url <url>                  Meet URL or bare abc-defg-hij code   (required)
@@ -227,6 +353,10 @@ OPTIONS
   --max-duration <sec>         Hard cap on call length              (default: ${DEFAULTS.maxDurationSec})
   --consent-message <text>     Override the chat disclosure message
   --no-chat-announce           Skip the consent chat message
+  --summary-delay <sec>        Hold this long after the call winds down,
+                               then post the summary to chat       (default: ${DEFAULTS.summaryDelaySec})
+  --no-summary-chat            Skip the end-of-meeting summary post
+  --app-url <url>              Link included in the summary post
   --require-muted              Abort if the UI mute cannot be verified
   --profile <dir>              Signed-in Chrome profile dir (default: guest join)
   --headless                   Experimental; headful is supported
