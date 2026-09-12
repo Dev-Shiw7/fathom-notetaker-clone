@@ -5,7 +5,7 @@ import type { Meeting, Transcript, MeetingAnalytics, Summary } from '@/lib/types
 import { usePlayback } from '@/components/player/usePlayback';
 import { TalkRibbon } from '@/components/player/TalkRibbon';
 import { TranscriptList } from '@/components/transcript/TranscriptList';
-import { formatTimestamp } from '@/lib/analytics';
+import { formatTimestamp, formatMeetingDate } from '@/lib/analytics';
 
 interface Props {
   meeting: Meeting;
@@ -85,7 +85,7 @@ export default function MainPlayer({ meeting, transcript, analytics, summaries, 
       <div className="topbar">
         <div>
           <h1 className="tb-title">{meeting.title}</h1>
-          <div className="tb-meta">{new Date(meeting.startedAt).toLocaleDateString()} · {Math.round(meeting.durationMs/60000)} min · {meeting.participants.length}p</div>
+          <div className="tb-meta">{formatMeetingDate(meeting.startedAt)} · {Math.round(meeting.durationMs/60000)} min · {meeting.participants.length}p</div>
         </div>
         <div className="tb-actions">
           <button 

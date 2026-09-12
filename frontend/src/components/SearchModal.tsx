@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { SearchHit } from '@/lib/types';
-import { formatTimestamp } from '@/lib/analytics';
+import { formatTimestamp, formatMeetingDate } from '@/lib/analytics';
 
 interface Props {
   open: boolean;
@@ -104,7 +104,7 @@ export default function SearchModal({ open, onClose, onNavigate }: Props) {
                   {hit.meetingTitle}
                 </span>
                 <span className="text-xs text-[var(--text-faint,#aaa)] shrink-0">
-                  {new Date(hit.startedAt).toLocaleDateString()} · {formatTimestamp(hit.startMs)}
+                  {formatMeetingDate(hit.startedAt)} · {formatTimestamp(hit.startMs)}
                 </span>
               </div>
               <div className="text-xs text-[var(--text-muted,#666)]">

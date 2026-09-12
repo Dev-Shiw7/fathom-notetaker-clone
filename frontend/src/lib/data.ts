@@ -13,7 +13,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { COLLECTIONS, db, hasMongo } from './mongo';
-import { computeAnalytics } from './analytics';
+import { computeAnalytics, formatMeetingDate } from './analytics';
 import {
   SEED_ASK_THREADS,
   SEED_HIGHLIGHTS,
@@ -337,7 +337,7 @@ export async function saveBotTranscript(input: {
     tags: ['bot-recorded', 'stubbed'],
     audioUrl: null,
     templateIds: [],
-    blurb: `Recorded by ${input.botName} on ${new Date().toLocaleDateString()}`,
+    blurb: `Recorded by ${input.botName} on ${formatMeetingDate(new Date().toISOString())}`,
   };
 
   if (!hasMongo) {

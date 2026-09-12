@@ -2,6 +2,7 @@
 
 import React from 'react';
 import type { Meeting } from '@/lib/types';
+import { formatMeetingDate } from '@/lib/analytics';
 
 interface Props {
   meetings: Meeting[];
@@ -37,7 +38,7 @@ export default function MeetingList({ meetings, selectedId, onSelect, onSearchCl
               <div className="m-thumb"><div className="play" /></div>
               <div className="m-info">
                 <div className="m-title">{m.title}</div>
-              <div className="m-sub">{new Date(m.startedAt).toLocaleDateString()} · {Math.round(m.durationMs/60000)} min · {m.participants.length}p</div>
+              <div className="m-sub">{formatMeetingDate(m.startedAt)} · {Math.round(m.durationMs/60000)} min · {m.participants.length}p</div>
               </div>
             </div>
           ))}

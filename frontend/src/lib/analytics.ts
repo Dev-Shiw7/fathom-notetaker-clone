@@ -151,6 +151,25 @@ export function formatTimestamp(ms: number): string {
     : `${minutes}:${pad(seconds)}`;
 }
 
+const MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const;
+
+/**
+ * `9 Sep 2026` — deterministic on both server and client.
+ *
+ * `toLocaleDateString()` cannot be used here: it resolves against the host's
+ * locale *and* timezone, so Node rendered "09/09/2026" while the browser
+ * rendered "9/9/2026" and React threw a hydration mismatch. Reading UTC parts
+ * and formatting them by hand is the only way both sides agree.
+ */
+export function formatMeetingDate(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}
+
 /** `58 min` / `1h 02m` — for durations rather than positions. */
 export function formatDuration(ms: number): string {
   const totalMinutes = Math.round(ms / 60_000);
