@@ -106,6 +106,10 @@ export interface EventPayloads {
   'participants.changed': { count: number; previous: number | null };
   'leave.triggered': { reason: LeaveReason };
   'leave.completed': { durationInCallMs: number };
+  'recording.started': { method: string; reason?: string };
+  'recording.tick': { elapsedMs: number };
+  'recording.completed': { durationMs: number };
+  'transcript.generated': { turnCount: number; participantCount: number };
   'session.ended': {
     outcome: SessionOutcome;
     exitCode: ExitCode;

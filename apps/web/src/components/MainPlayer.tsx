@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { Meeting, Transcript, MeetingAnalytics } from '@/lib/types';
 import { usePlayback } from '@/components/player/usePlayback';
 import { TalkRibbon } from '@/components/player/TalkRibbon';
@@ -16,11 +16,45 @@ export default function MainPlayer({ meeting, transcript, analytics }: Props) {
   const duration = meeting?.durationMs ?? 0;
   const audioUrl = meeting?.audioUrl ?? null;
   const pb = usePlayback(duration, audioUrl);
+  const [botJoining, setBotJoining] = useState(false);
+  const [botStatus, setBotStatus] = useState<string | null>(null);
 
   useEffect(() => {
     // reset on meeting change
     pb.seek(0);
+    setBotStatus(null);
   }, [meeting?.id]);
+
+  const handleAddBot = async () => {
+    try {
+      setBotJoining(true);
+      setBotStatus('Starting bot...');
+      
+      const response = await fetch('/api/bot/join', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meetingId: meeting.id,
+          meetingUrl: `https://meet.google.com/${meeting.id}`,
+          botName: 'Notetaker',
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setBotStatus(`Error: ${data.error}`);
+        return;
+      }
+
+      setBotStatus('✓ Bot is joining the meeting');
+      setTimeout(() => setBotStatus(null), 3000);
+    } catch (error) {
+      setBotStatus(`Error: ${(error as Error).message}`);
+    } finally {
+      setBotJoining(false);
+    }
+  };
 
   if (!meeting) return <div style={{padding:20}}>No meeting selected</div>;
 
@@ -32,10 +66,30 @@ export default function MainPlayer({ meeting, transcript, analytics }: Props) {
           <div className="tb-meta">{new Date(meeting.startedAt).toLocaleDateString()} · {Math.round(meeting.durationMs/60000)} min · {meeting.participants.length}p</div>
         </div>
         <div className="tb-actions">
+          <button 
+            className="btn" 
+            onClick={handleAddBot}
+            disabled={botJoining}
+            title="Start the Notetaker bot to join this meeting"
+          >
+            {botJoining ? '⟳' : '🤖'} Bot
+          </button>
           <button className="btn" onClick={() => navigator.clipboard?.writeText(window.location.href)}>↗ Share</button>
           <button className="btn primary" onClick={() => pb.toggle()}>{pb.playing ? '❚❚' : '▶'}</button>
         </div>
       </div>
+
+      {botStatus && (
+        <div style={{
+          padding: '12px 28px',
+          backgroundColor: botStatus.includes('Error') ? '#fee' : '#efe',
+          color: botStatus.includes('Error') ? '#c33' : '#3c3',
+          fontSize: '14px',
+          borderBottom: '1px solid #ddd',
+        }}>
+          {botStatus}
+        </div>
+      )}
 
       <div className="workspace" style={{display:'grid', gridTemplateColumns:'1fr 380px', overflow:'hidden', flex:1}}>
         <div className="left-pane" style={{padding:'20px 28px 60px 28px'}}>

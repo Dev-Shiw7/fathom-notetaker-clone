@@ -21,6 +21,7 @@ import {
 import { confirmJoinRequested, waitForAdmission } from './meet/admission.js';
 import { detectExit, getParticipantCount, leaveCall } from './meet/incall.js';
 import { announce } from './meet/chat.js';
+import { recordStubTranscript } from './recording.js';
 import {
   ExitCode,
   type BotState,
@@ -210,6 +211,16 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
         });
       }
     }
+
+    // ---- Record transcript ----------------------------------------------
+    const { turns, summary } = await recordStubTranscript(page, options.meetingCode || 'unknown', log);
+    
+    // TODO: In production, save turns and summary to database
+    // For now, they're logged in the events.jsonl for inspection
+    log.emit('warn', {
+      message: 'Transcript recording is stubbed for demo',
+      detail: `Generated ${turns.length} turns and a summary. In production, this would save to the database.`,
+    });
 
     const reason = await monitorCall(page, options, joinedAt, interrupt, log);
 
