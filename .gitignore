@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Bot runtime output: session recordings, caption logs, DOM snapshots
+out/
+# Persistent Chromium profile holding the bot's Google session
+.profiles/
+
+.env
+.env.local
+.DS_Store

@@ -1,0 +1,14 @@
+{
+  "name": "8x-assessment",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "bot": "npm run -w @notetaker/bot start --"
+  }
+}
