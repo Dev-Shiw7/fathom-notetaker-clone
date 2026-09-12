@@ -1,0 +1,11 @@
+{
+  "agent-capture": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python3 scripts/capture.py",
+        "timeout": 30
+      }
+    ]
+  }
+}
