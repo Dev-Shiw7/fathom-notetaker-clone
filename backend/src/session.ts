@@ -215,12 +215,39 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
     // ---- Record transcript ----------------------------------------------
     const { turns, summary } = await recordStubTranscript(page, options.meetingCode || 'unknown', log);
     
-    // TODO: In production, save turns and summary to database
-    // For now, they're logged in the events.jsonl for inspection
-    log.emit('warn', {
-      message: 'Transcript recording is stubbed for demo',
-      detail: `Generated ${turns.length} turns and a summary. In production, this would save to the database.`,
-    });
+    // Post transcript to web API for storage
+    // Try to post, but don't fail the session if it doesn't work (web app may not be running)
+    try {
+      const apiResponse = await fetch('http://localhost:3000/api/bot/transcript', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          meetingCode: options.meetingCode,
+          meetingUrl: options.meetingUrl,
+          botName: options.botName,
+          turns,
+          summary,
+        }),
+      });
+      
+      if (apiResponse.ok) {
+        log.emit('warn', {
+          message: 'Transcript posted to web API',
+          detail: 'The web UI should now display this meeting',
+        });
+      } else {
+        log.emit('warn', {
+          message: 'Web API returned error when saving transcript',
+          detail: `HTTP ${apiResponse.status}`,
+        });
+      }
+    } catch (err) {
+      // Web app might not be running; this is fine for testing
+      log.emit('warn', {
+        message: 'Could not post transcript to web API (web app may not be running)',
+        detail: (err as Error).message,
+      });
+    }
 
     const reason = await monitorCall(page, options, joinedAt, interrupt, log);
 

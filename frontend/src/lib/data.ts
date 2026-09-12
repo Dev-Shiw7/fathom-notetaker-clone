@@ -298,3 +298,63 @@ function buildSnippet(text: string, index: number, length: number): string {
     text.slice(index + length, to);
   return `${from > 0 ? '…' : ''}${body}${to < text.length ? '…' : ''}`;
 }
+/**
+ * Save a meeting and its transcript from the bot.
+ * Used when the bot completes a recording and sends it to the API.
+ */
+export async function saveBotTranscript(input: {
+  meetingCode: string;
+  meetingUrl: string;
+  botName: string;
+  transcript: Transcript;
+  summary?: { text: string; keyPoints?: string[]; actionItems?: Array<{ task: string }> };
+}): Promise<Meeting | null> {
+  // Get unique speakers from transcript
+  const speakerIds = Array.from(new Set(input.transcript.turns.map(t => t.speakerId)));
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#FECE5C'];
+  
+  // Create a meeting record
+  const meeting: Meeting = {
+    id: input.meetingCode,
+    title: `Bot Recording: ${input.meetingCode}`,
+    startedAt: new Date().toISOString(),
+    durationMs: input.transcript.turns[input.transcript.turns.length - 1]?.endMs ?? 60000,
+    platform: 'meet',
+    status: 'recorded',
+    participants: speakerIds.map((id, i) => {
+      const name = `Speaker ${i + 1}`;
+      return {
+        id,
+        name,
+        role: null,
+        org: null,
+        isHost: i === 0,
+        isExternal: false,
+        color: colors[i % colors.length],
+        initials: name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
+      };
+    }),
+    tags: ['bot-recorded', 'stubbed'],
+    audioUrl: null,
+    templateIds: [],
+    blurb: `Recorded by ${input.botName} on ${new Date().toLocaleDateString()}`,
+  };
+
+  if (!hasMongo) {
+    // Store in memory
+    memoryMeetings.push(meeting);
+    memoryTranscripts.push(input.transcript);
+    return meeting;
+  }
+
+  // In production, save to MongoDB
+  try {
+    const database = await db();
+    await database.collection(COLLECTIONS.meetings).insertOne(meeting as any);
+    await database.collection(COLLECTIONS.transcripts).insertOne(input.transcript as any);
+    return meeting;
+  } catch (err) {
+    console.error('Error saving bot transcript:', err);
+    return null;
+  }
+}
