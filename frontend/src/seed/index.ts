@@ -17,6 +17,7 @@ import type {
   UpcomingMeeting,
 } from '@/lib/types';
 import * as meridian from './meetings/meridian-discovery';
+import * as q4Planning from './meetings/q4-planning';
 
 interface SeedMeeting {
   meeting: Meeting;
@@ -47,7 +48,10 @@ function assemble(source: {
   };
 }
 
-export const SEED_MEETINGS: SeedMeeting[] = [assemble(meridian)];
+export const SEED_MEETINGS: SeedMeeting[] = [
+  assemble(q4Planning),
+  assemble(meridian),
+];
 
 export const SEED_HIGHLIGHTS: Highlight[] = [
   {
