@@ -52,44 +52,64 @@ export async function ensureMediaOff(page: Page): Promise<MediaState> {
   return { camera, microphone, verified: camera && microphone };
 }
 
+/** How long to keep trying to get one toggle into the muted state. */
+const MUTE_DEADLINE_MS = 15_000;
+
 /**
- * Drives one mute toggle to the "off" state.
+ * Drives one mute toggle to the "off" state, retrying until it verifiably
+ * sticks.
  *
- * Meet exposes the current state two different ways depending on version:
- * a `data-is-muted` attribute, or an aria-label that names the *action*
- * ("Turn off microphone" means it is currently ON). We read whichever exists,
- * click only if needed, then verify. If the control can't be found at all we
- * fall back to Meet's keyboard shortcuts, which have been stable far longer
- * than its markup.
+ * A single click is not enough, and this cost us a live run to learn: the
+ * selectors resolve immediately, the click reports success, and `data-is-muted`
+ * stays `"false"`. Meet is still wiring up its media devices at that point and
+ * quietly discards the toggle. On top of that, a "Sign in with your Google
+ * account" tooltip renders a beat *after* the pre-join screen and can swallow
+ * the click — so overlays get cleared on every attempt, not just once up front.
+ *
+ * Current state is read from `data-is-muted` where present, falling back to the
+ * aria-label, which names the *action* rather than the state ("Turn off
+ * microphone" means it is currently on).
  */
 async function setToggleMuted(
   page: Page,
   selector: SelectorChain,
   kind: 'microphone' | 'camera',
 ): Promise<boolean> {
-  const found = await resolveFirst(page, selector, 1_500);
+  const deadline = Date.now() + MUTE_DEADLINE_MS;
+  let attempt = 0;
 
-  if (!found) {
-    await muteViaKeyboard(page, kind);
-    // Nothing to read back, so this is explicitly unverified.
-    return false;
-  }
+  while (Date.now() < deadline) {
+    attempt += 1;
 
-  try {
-    if (!(await isMuted(found.locator, kind))) {
-      await found.locator.click({ timeout: 3_000 });
+    // Clear anything that might intercept the click before each try.
+    await dismissOverlays(page, 1);
+
+    const found = await resolveFirst(page, selector, 2_000);
+    if (!found) {
       await page.waitForTimeout(500);
+      continue;
     }
 
-    if (await isMuted(found.locator, kind)) return true;
+    try {
+      if (await isMuted(found.locator, kind)) return true;
 
-    // The click didn't take — try the shortcut before giving up.
-    await muteViaKeyboard(page, kind);
-    await page.waitForTimeout(500);
-    return await isMuted(found.locator, kind);
-  } catch {
-    return false;
+      await found.locator.click({ timeout: 2_000 });
+      await page.waitForTimeout(700);
+      if (await isMuted(found.locator, kind)) return true;
+
+      // Meet's own shortcuts are a different code path into the same state,
+      // and have outlived several markup revisions.
+      if (attempt >= 2) {
+        await muteViaKeyboard(page, kind);
+        await page.waitForTimeout(500);
+        if (await isMuted(found.locator, kind)) return true;
+      }
+    } catch {
+      // Element went stale mid-attempt; re-resolve on the next pass.
+    }
   }
+
+  return false;
 }
 
 async function isMuted(

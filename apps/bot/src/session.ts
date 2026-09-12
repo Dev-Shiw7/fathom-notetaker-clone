@@ -149,7 +149,11 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
 
     // ---- Waiting room ---------------------------------------------------
     setState('WAITING_ROOM');
-    const admission = await waitForAdmission(page, options.admissionTimeoutMs);
+    const admission = await waitForAdmission(
+      page,
+      options.admissionTimeoutMs,
+      options.meetingCode,
+    );
 
     if (admission.status === 'DENIED') {
       log.emit('admission.denied', { waitedMs: admission.waitedMs });

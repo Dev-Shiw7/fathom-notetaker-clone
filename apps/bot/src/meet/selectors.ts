@@ -146,11 +146,19 @@ export const LANDING_SIGN_IN_REQUIRED = chain(
   [
     text(/you can't join this video call/i),
     text(/sign in to join this (video call|meeting)/i),
-    text(/ask to join.*sign in|you need to sign in/i),
   ],
-  // NOTE: deliberately no `role=button[name="Sign in"]` candidate. Meet renders
-  // a "Sign in" link in the header of *every* page, including joinable guest
-  // pre-join screens — matching it made the bot refuse meetings it could join.
+  // NOTE: this chain must only match screens that genuinely BLOCK entry, and
+  // two candidates have already been removed for failing that test:
+  //
+  //   role=button[name="Sign in"]     — Meet's header link, on every page
+  //   text=/ask to join.*sign in/     — matched the "Instead of waiting to be
+  //                                     let in, sign in with the Google account
+  //                                     your host invited" tooltip, which is an
+  //                                     upsell on a perfectly joinable screen
+  //
+  // Both made the bot classify a joinable meeting as unjoinable and exit 4.
+  // Prefer a missed classification here over a false one: an unrecognised
+  // blocker still fails at the join button, which is loud and diagnosable.
   true,
 );
 
