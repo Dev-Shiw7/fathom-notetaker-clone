@@ -1,43 +1,191 @@
 @import 'tailwindcss';
 
-/*
- * Recap design tokens (light-first for UI).
- */
+/* ===========================================================================
+   Cadence design tokens
+   ---------------------------------------------------------------------------
+   One source of truth for colour. Components address these by semantic role
+   (--text-muted, --bg-raised) rather than by shade, which is what lets the
+   dark palette below be a pure token swap with no component changes.
+
+   The legacy names (--ink, --panel, --muted …) are kept as aliases at the
+   bottom of each block so the older hand-written CSS classes in this file keep
+   working; nothing new should reach for them.
+   =========================================================================== */
+
 :root {
-  --bg: #f6f7fb;
-  --panel: #ffffff;
-  --ink: #12141c;
-  --ink-2: #1c1f2b;
-  --border: #e6e8f0;
-  --muted: #6b7086;
+  color-scheme: light;
+
+  /* Surfaces, back to front. */
+  --bg: #f4f5fa;
+  --bg-raised: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-hover: #eef0f7;
+  --bg-sunken: #e9ebf3;
+
+  /* Text, strongest to faintest. */
+  --text: #12141c;
+  --text-muted: #5d6278;
+  --text-faint: #8b90a6;
+
+  /* Lines. */
+  --border: #e4e7f0;
+  --border-strong: #cdd2e2;
+
+  /* Brand. */
   --accent: #5b4bff;
-  --accent-dim: #eeecff;
-  --accent-2: #ff5c7c;
-  --good: #1fbf83;
-  --good-dim: #e3f9ef;
-  --gold: #ffb648;
+  --accent-hover: #4839f0;
+  --accent-soft: #eeecff;
+  --accent-ring: rgba(91, 75, 255, 0.38);
+  --accent-contrast: #ffffff;
+
+  /* Status. */
+  --positive: #0f9b6c;
+  --positive-soft: #e2f7ef;
+  --warning: #b5761b;
+  --warning-soft: #fdf1dd;
+  --danger: #d33d52;
+  --danger-soft: #fdeaed;
+
+  /* Shape & depth. */
   --radius: 14px;
+  --radius-sm: 9px;
+  --radius-lg: 18px;
+  --shadow-sm: 0 1px 2px rgba(18, 20, 28, 0.06);
+  --shadow-md: 0 4px 14px -4px rgba(18, 20, 28, 0.14);
+  --shadow-lg: 0 18px 44px -12px rgba(18, 20, 28, 0.26);
+
+  /* Motion. */
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
+  --fast: 0.13s;
+  --med: 0.22s;
+
+  /* Legacy aliases — do not use in new code. */
+  --panel: var(--bg-raised);
+  --ink: var(--text);
+  --ink-2: #1c1f2b;
+  --muted: var(--text-muted);
+  --accent-dim: var(--accent-soft);
+  --accent-2: #ff5c7c;
+  --good: var(--positive);
+  --good-dim: var(--positive-soft);
+  --gold: var(--warning);
 }
 
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    --bg: #f6f7fb;
-    --panel: #ffffff;
-    --ink: #12141c;
-    --border: #e6e8f0;
-    --accent: #5b4bff;
+/* Dark palette. Applies when the OS asks for it, unless the user has
+   explicitly chosen light; an explicit [data-theme] always wins. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+
+    --bg: #0c0e16;
+    --bg-raised: #14161f;
+    --bg-panel: #14161f;
+    --bg-hover: #1d202c;
+    --bg-sunken: #090a11;
+
+    --text: #eef0f7;
+    --text-muted: #a0a6bd;
+    --text-faint: #6e7490;
+
+    --border: #242736;
+    --border-strong: #363b4f;
+
+    --accent: #8b7cff;
+    --accent-hover: #9d90ff;
+    --accent-soft: #201d3d;
+    --accent-ring: rgba(139, 124, 255, 0.45);
+    --accent-contrast: #0c0e16;
+
+    --positive: #34d399;
+    --positive-soft: #10281f;
+    --warning: #f0b357;
+    --warning-soft: #2a2010;
+    --danger: #f87184;
+    --danger-soft: #2c151a;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 14px -4px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, 0.75);
+
+    --ink-2: #f7f8fc;
+    --accent-2: #ff7d97;
   }
 }
 
-@theme inline {
-  --color-bg: var(--bg);
-  --color-panel: var(--panel);
-  --color-ink: var(--ink);
-  --color-border: var(--border);
-  --color-accent: var(--accent);
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: #0c0e16;
+  --bg-raised: #14161f;
+  --bg-panel: #14161f;
+  --bg-hover: #1d202c;
+  --bg-sunken: #090a11;
+
+  --text: #eef0f7;
+  --text-muted: #a0a6bd;
+  --text-faint: #6e7490;
+
+  --border: #242736;
+  --border-strong: #363b4f;
+
+  --accent: #8b7cff;
+  --accent-hover: #9d90ff;
+  --accent-soft: #201d3d;
+  --accent-ring: rgba(139, 124, 255, 0.45);
+  --accent-contrast: #0c0e16;
+
+  --positive: #34d399;
+  --positive-soft: #10281f;
+  --warning: #f0b357;
+  --warning-soft: #2a2010;
+  --danger: #f87184;
+  --danger-soft: #2c151a;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 14px -4px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, 0.75);
+
+  --ink-2: #f7f8fc;
+  --accent-2: #ff7d97;
 }
 
-* {
+/* Expose the semantic roles to Tailwind so `bg-panel` / `text-muted` resolve
+   to the same variables the hand-written CSS uses. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-panel: var(--bg-panel);
+  --color-raised: var(--bg-raised);
+  --color-hover: var(--bg-hover);
+  --color-ink: var(--text);
+  --color-muted: var(--text-muted);
+  --color-faint: var(--text-faint);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-positive: var(--positive);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+}
+
+/* ---------------------------------------------------------------------------
+   Everything below is written into Tailwind's own cascade layers.
+
+   This matters more than it looks. Unlayered CSS beats *every* layered rule
+   regardless of specificity, so while these component classes sat outside a
+   layer they silently overrode the utilities they were combined with:
+   `.btn min-[900px]:hidden` stayed visible on desktop, and `.tap flex gap-2`
+   lost its flex layout. Putting them in `components` restores the normal
+   order — utilities win, which is the whole point of utilities.
+   --------------------------------------------------------------------------- */
+
+@layer base {
+/* ===========================================================================
+   Base
+   =========================================================================== */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
   border-color: var(--border);
 }
 
@@ -45,55 +193,142 @@ html,
 body {
   margin: 0;
   height: 100%;
-  font-family: 'Inter', sans-serif;
 }
 
 body {
   background: var(--bg);
-  color: var(--ink);
-  overflow: hidden;
+  color: var(--text);
+  /* --font-sans is supplied by next/font in the root layout. */
+  font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* The app shell owns its own scrolling regions; the page itself never
+     scrolls. Previously this also clipped the sticky header's 56px off the
+     bottom of the viewport, because the shell below it was a full 100dvh. */
+  overflow: hidden;
 }
 
-/* Recap sidebar */
+::selection {
+  background: var(--accent-soft);
+  color: var(--text);
+}
+}
+
+@layer components {
+/* ===========================================================================
+   Interaction layer
+
+   Every clickable thing in the app opts into one of these. The rule we hold
+   to: hover must never reflow the page. `transform` and `text-shadow` are
+   both compositor-only, so text can get visibly heavier and larger without
+   nudging a single neighbour — which a `font-weight` change would do.
+   =========================================================================== */
+
+/* Clickable *text*: lifts, warms to the accent, and optically bolds. */
+.tap {
+  display: inline-block;
+  cursor: pointer;
+  transform-origin: left center;
+  transition: transform var(--fast) var(--ease), color var(--fast) var(--ease),
+    text-shadow var(--fast) var(--ease);
+}
+
+.tap:hover {
+  color: var(--accent);
+  transform: scale(1.045);
+  /* Optical bolding — no reflow, unlike font-weight. */
+  text-shadow: 0 0 0.4px currentColor, 0 0 0.4px currentColor;
+}
+
+.tap:active {
+  transform: scale(0.985);
+}
+
+/* Clickable *surfaces*: cards, rows, tiles. Lift rather than grow. */
+.tap-surface {
+  cursor: pointer;
+  transition: background-color var(--fast) var(--ease),
+    box-shadow var(--med) var(--ease), transform var(--fast) var(--ease),
+    border-color var(--fast) var(--ease);
+}
+
+.tap-surface:hover {
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.tap-surface:active {
+  transform: translateY(0) scale(0.995);
+  box-shadow: var(--shadow-sm);
+}
+
+/* One focus ring for the whole app, and only for keyboard users.
+   Written as a plain selector list rather than :where(…): that pseudo-class
+   contributes zero specificity, so the browser's own 3px `outline: auto` was
+   still winning on half the elements and the ring changed thickness as you
+   tabbed across the page. */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:disabled,
+input:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+/* Honour the OS setting. Everything above degrades to an instant state change
+   rather than breaking. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .tap:hover,
+  .tap-surface:hover {
+    transform: none;
+  }
+}
+
+/* ===========================================================================
+   Sidebar rail
+   =========================================================================== */
+
 .sidebar {
-  background: var(--panel);
+  background: var(--bg-panel);
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 20px 20px 16px 20px;
-}
-
-.brand-mark {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.brand-name {
-  font-size: 16.5px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
+/* .brand / .brand-mark / .brand-name lived here for the rail's own "Cadence"
+   wordmark, which was a duplicate of the header's and has been removed. The
+   header logo is plain utilities in layout.tsx, so nothing references these.
+   (The standalone prototype at /design carries its own inline copies.) */
 
 .new-btn {
-  margin: 0 16px 18px 16px;
-  background: var(--ink);
-  color: #fff;
+  margin: 0 14px 14px 14px;
+  background: var(--text);
+  color: var(--bg-raised);
   border: none;
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 10px;
   font-weight: 700;
   font-size: 13px;
@@ -102,43 +337,82 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  transition: background 0.12s ease;
+  transition: transform var(--fast) var(--ease),
+    box-shadow var(--med) var(--ease), opacity var(--fast) var(--ease);
 }
 
 .new-btn:hover {
-  background: var(--ink-2);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+  opacity: 0.92;
+}
+
+.new-btn:active {
+  transform: translateY(0) scale(0.985);
+  box-shadow: var(--shadow-sm);
 }
 
 .section-label {
   font-size: 10.5px;
   font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
   margin: 2px 20px 8px 20px;
 }
 
 .meeting-list {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 0 10px 16px 10px;
 }
 
+/* Meeting row. A real <button>, so it is reachable by keyboard. */
 .m-card {
   display: flex;
   gap: 10px;
-  padding: 10px;
-  border-radius: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: inherit;
+  font: inherit;
   cursor: pointer;
   margin-bottom: 2px;
-  transition: background 0.12s ease;
+  position: relative;
+  transition: background-color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
 
 .m-card:hover {
-  background: var(--bg);
+  background: var(--bg-hover);
+  transform: translateX(2px);
+}
+
+.m-card:active {
+  transform: translateX(2px) scale(0.99);
 }
 
 .m-card.active {
-  background: var(--accent-dim);
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+/* The selected row gets a spine, so selection survives at a glance even when
+   the accent tint is subtle. */
+.m-card.active::before {
+  content: '';
+  position: absolute;
+  left: -1px;
+  top: 9px;
+  bottom: 9px;
+  width: 3px;
+  border-radius: 3px;
+  background: var(--accent);
 }
 
 .m-thumb {
@@ -152,15 +426,12 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #fff;
+  transition: transform var(--med) var(--ease);
 }
 
-.m-thumb .play {
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 5px 0 5px 8px;
-  border-color: transparent transparent transparent #fff;
-  opacity: 0.85;
+.m-card:hover .m-thumb {
+  transform: scale(1.06);
 }
 
 .m-info {
@@ -171,145 +442,211 @@ body {
 .m-title {
   font-size: 12.5px;
   font-weight: 700;
-  line-height: 1.3;
+  line-height: 1.35;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color var(--fast) var(--ease);
+}
+
+.m-card:hover .m-title {
+  color: var(--accent);
+}
+
+.m-card.active .m-title {
+  color: var(--accent);
 }
 
 .m-sub {
   font-size: 11px;
-  color: var(--muted);
-  margin-top: 2px;
+  color: var(--text-muted);
+  margin-top: 3px;
   display: flex;
   gap: 5px;
   align-items: center;
 }
 
-/* Main player */
+/* ===========================================================================
+   Main column
+   =========================================================================== */
+
 .main {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
 .topbar {
-  padding: 20px 28px 14px 28px;
+  padding: 16px 24px 14px 24px;
   border-bottom: 1px solid var(--border);
-  background: var(--panel);
+  background: var(--bg-panel);
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
+  gap: 16px;
+  flex-wrap: wrap;
 }
 
 .tb-title {
   font-size: 19px;
   font-weight: 800;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   margin: 0 0 5px 0;
+  line-height: 1.25;
 }
 
 .tb-meta {
   font-size: 12.5px;
-  color: var(--muted);
+  color: var(--text-muted);
   display: flex;
-  gap: 12px;
+  gap: 10px;
   flex-wrap: wrap;
+  align-items: center;
 }
 
 .tb-actions {
   display: flex;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .btn {
   font-size: 12.5px;
   font-weight: 700;
-  padding: 8px 14px;
-  border-radius: 9px;
+  padding: 8px 13px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: var(--panel);
+  background: var(--bg-raised);
+  color: var(--text);
   cursor: pointer;
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  transition: all 0.12s ease;
+  white-space: nowrap;
+  transition: background-color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease), transform var(--fast) var(--ease),
+    box-shadow var(--med) var(--ease), color var(--fast) var(--ease);
 }
 
-.btn:hover {
-  background: var(--bg);
+.btn:hover:not(:disabled) {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
+  box-shadow: none;
 }
 
 .btn.primary {
   background: var(--accent);
-  color: #fff;
+  color: var(--accent-contrast);
   border-color: var(--accent);
 }
 
-.btn.primary:hover {
-  background: #4c3ef0;
+.btn.primary:hover:not(:disabled) {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-icon {
+  padding: 8px;
+  width: 34px;
+  justify-content: center;
 }
 
 .workspace {
   flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns: 1fr 380px;
+  grid-template-columns: minmax(0, 1fr) 380px;
   overflow: hidden;
 }
 
 .left-pane {
-  overflow-y: auto;
-  padding: 20px 28px 60px 28px;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 18px 24px 0 24px;
 }
 
 .right-pane {
   border-left: 1px solid var(--border);
-  background: var(--panel);
-  overflow-y: auto;
-  padding: 0;
+  background: var(--bg-panel);
+  min-height: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
+/* Below this the two side panels stop fitting; the right pane drops away and
+   the meeting detail takes the full width. */
+@media (max-width: 1180px) {
+  .workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .right-pane {
+    display: none;
+  }
+}
+
+/* ===========================================================================
+   Player
+   =========================================================================== */
+
 .player {
-  background: linear-gradient(135deg, #1c1f30, #0f111a);
-  border-radius: 16px;
+  background:
+    radial-gradient(
+      120% 120% at 50% 0%,
+      rgba(91, 75, 255, 0.22) 0%,
+      transparent 60%
+    ),
+    linear-gradient(135deg, #1c1f30, #0f111a);
+  border-radius: var(--radius);
   aspect-ratio: 16 / 9;
+  /* Without a cap, a 16:9 box at full pane width pushes the transcript
+     entirely below the fold on laptop screens. */
+  max-height: min(38vh, 320px);
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  margin-bottom: 6px;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
 }
 
 .player .center-play {
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(4px);
+  color: #fff;
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease;
-  border: none;
+  transition: transform var(--med) var(--ease),
+    background-color var(--med) var(--ease), box-shadow var(--med) var(--ease);
+  border: 1px solid rgba(255, 255, 255, 0.18);
 }
 
 .player .center-play:hover {
-  background: rgba(255, 255, 255, 0.22);
-  transform: scale(1.06);
+  background: rgba(255, 255, 255, 0.26);
+  transform: scale(1.1);
+  box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.07);
 }
 
-.player .center-play .tri {
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 10px 0 10px 16px;
-  border-color: transparent transparent transparent #fff;
-  margin-left: 4px;
+.player .center-play:active {
+  transform: scale(0.98);
 }
 
 .player .caption {
@@ -317,17 +654,28 @@ body {
   bottom: 14px;
   left: 16px;
   right: 16px;
-  color: #e9e9f5;
+  color: #edeef7;
   font-size: 13px;
-  background: rgba(0, 0, 0, 0.35);
-  padding: 6px 10px;
+  line-height: 1.5;
+  background: rgba(0, 0, 0, 0.42);
+  padding: 7px 11px;
   border-radius: 8px;
-  backdrop-filter: blur(3px);
+  backdrop-filter: blur(4px);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
+
+/* ===========================================================================
+   Right-hand panel tabs
+   =========================================================================== */
 
 .r-tabs {
   display: flex;
   border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  background: var(--bg-panel);
 }
 
 .r-tab {
@@ -336,18 +684,26 @@ body {
   padding: 13px 0;
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--muted);
+  color: var(--text-muted);
   cursor: pointer;
   position: relative;
   background: none;
   border: none;
+  font-family: inherit;
+  transition: color var(--fast) var(--ease),
+    background-color var(--fast) var(--ease);
 }
 
-.r-tab.active {
-  color: var(--ink);
+.r-tab:hover {
+  color: var(--text);
+  background: var(--bg-hover);
 }
 
-.r-tab.active::after {
+.r-tab[aria-selected='true'] {
+  color: var(--accent);
+}
+
+.r-tab[aria-selected='true']::after {
   content: '';
   position: absolute;
   left: 14px;
@@ -360,28 +716,115 @@ body {
 
 .r-content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 18px 18px 40px 18px;
 }
 
 .sec-title {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
-  color: var(--muted);
-  margin: 18px 0 8px 0;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+  margin: 20px 0 8px 0;
 }
 
 .sec-title:first-child {
   margin-top: 0;
 }
 
+/* ===========================================================================
+   Utilities
+   =========================================================================== */
+
+/* Loading placeholder. */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-hover) 25%,
+    var(--bg-sunken) 37%,
+    var(--bg-hover) 63%
+  );
+  background-size: 400% 100%;
+  animation: skeleton-slide 1.3s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+@keyframes skeleton-slide {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast-enter {
+  animation: toast-in var(--med) var(--ease) both;
+}
+
+@keyframes overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.overlay-enter {
+  animation: overlay-in var(--fast) var(--ease) both;
+}
+
+.dialog-enter {
+  animation: dialog-in var(--med) var(--ease) both;
+}
+
+/* Scrollbars: present, but out of the way until you are over the region. */
 ::-webkit-scrollbar {
-  width: 7px;
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #d8dae6;
+  background: transparent;
   border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+*:hover > ::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb:hover,
+:hover::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  background-clip: content-box;
+}
 }

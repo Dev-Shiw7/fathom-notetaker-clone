@@ -94,8 +94,41 @@ export function TalkRibbon({
   const dragLeft = drag ? Math.min(drag.fromPct, drag.toPct) * 100 : 0;
   const dragWidth = drag ? Math.abs(drag.toPct - drag.fromPct) * 100 : 0;
 
+  /** Whoever is speaking at the hovered point, for the floating readout. */
+  const hoverMs = hoverPct === null ? null : hoverPct * durationMs;
+  const hoverTurn =
+    hoverMs === null
+      ? null
+      : turns.find((t) => t.startMs <= hoverMs && hoverMs <= t.endMs) ?? null;
+
   return (
-    <div className="select-none">
+    <div className="relative select-none">
+      {/*
+        Floating readout. Replaces the per-block `title` attributes, which took
+        a second to appear, could not be styled, and vanished the moment the
+        pointer crossed into the next turn.
+      */}
+      {hoverMs !== null && (
+        <div
+          className="pointer-events-none absolute -top-9 z-10 -translate-x-1/2 whitespace-nowrap rounded-lg border border-[var(--border-strong)] bg-[var(--bg-raised)] px-2 py-1 text-[11px] font-semibold shadow-[var(--shadow-md)]"
+          style={{ left: `${Math.min(94, Math.max(6, (hoverPct ?? 0) * 100))}%` }}
+        >
+          <span className="font-mono tabular-nums text-[var(--text-muted)]">
+            {formatTimestamp(hoverMs)}
+          </span>
+          {hoverTurn && (
+            <>
+              <span className="mx-1.5 text-[var(--border-strong)]">|</span>
+              <span
+                style={{ color: colorById.get(hoverTurn.speakerId) ?? undefined }}
+              >
+                {nameById.get(hoverTurn.speakerId)}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
       <div
         ref={trackRef}
         onPointerDown={onPointerDown}
@@ -111,8 +144,10 @@ export function TalkRibbon({
         onKeyDown={(e) => {
           if (e.key === 'ArrowRight') onSeek(positionMs + 5_000);
           if (e.key === 'ArrowLeft') onSeek(positionMs - 5_000);
+          if (e.key === 'Home') onSeek(0);
+          if (e.key === 'End') onSeek(durationMs);
         }}
-        className="relative h-14 w-full cursor-crosshair overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-raised)]"
+        className="relative h-14 w-full cursor-crosshair overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-sunken)] transition-colors hover:border-[var(--border-strong)]"
       >
         {/* Speech blocks, one per turn, coloured by speaker. */}
         {turns.map((turn) => {
@@ -124,8 +159,7 @@ export function TalkRibbon({
           return (
             <div
               key={turn.id}
-              title={`${nameById.get(turn.speakerId) ?? ''} · ${formatTimestamp(turn.startMs)}`}
-              className="absolute top-0 h-full opacity-75 transition-opacity"
+              className="absolute top-0 h-full opacity-80 transition-opacity"
               style={{
                 left: `${left}%`,
                 width: `${width}%`,

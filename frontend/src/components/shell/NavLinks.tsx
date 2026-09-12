@@ -29,13 +29,19 @@ export function NavLinks() {
             key={link.href}
             href={link.href}
             aria-current={active ? 'page' : undefined}
-            className={`shrink-0 rounded-lg px-3 py-1.5 text-sm transition-colors ${
+            className={`relative shrink-0 rounded-lg px-3 py-1.5 text-sm transition duration-150 ${
               active
-                ? 'bg-[var(--bg-hover)] font-medium text-[var(--text)]'
-                : 'text-[var(--text-muted)] hover:text-[var(--text)]'
-            }`}
+                ? 'bg-[var(--accent-soft)] font-bold text-[var(--accent)]'
+                : 'font-medium text-[var(--text-muted)] hover:scale-105 hover:bg-[var(--bg-hover)] hover:text-[var(--text)] hover:[text-shadow:0_0_0.4px_currentColor]'
+            } active:scale-95`}
           >
             {link.label}
+            {active && (
+              <span
+                aria-hidden
+                className="absolute inset-x-3 -bottom-px h-0.5 rounded-full bg-[var(--accent)]"
+              />
+            )}
           </Link>
         );
       })}

@@ -3,6 +3,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import type { SearchHit } from '@/lib/types';
 import { formatTimestamp, formatMeetingDate } from '@/lib/analytics';
+import { SearchIcon, SpinnerIcon } from '@/components/ui/Icon';
 
 interface Props {
   open: boolean;
@@ -14,16 +15,25 @@ export default function SearchModal({ open, onClose, onNavigate }: Props) {
   const [query, setQuery] = useState('');
   const [hits, setHits] = useState<SearchHit[]>([]);
   const [loading, setLoading] = useState(false);
+  /** Keyboard cursor into the result list. */
+  const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (open) {
-      setTimeout(() => inputRef.current?.focus(), 50);
-    } else {
-      setQuery('');
-      setHits([]);
+      // Remember what had focus so Escape can hand it back, rather than
+      // dropping the user at the top of the document.
+      restoreFocusRef.current = document.activeElement as HTMLElement | null;
+      const timer = setTimeout(() => inputRef.current?.focus(), 40);
+      return () => clearTimeout(timer);
     }
+    setQuery('');
+    setHits([]);
+    setCursor(0);
+    restoreFocusRef.current?.focus?.();
   }, [open]);
 
   const doSearch = useCallback(async (q: string) => {
@@ -36,6 +46,7 @@ export default function SearchModal({ open, onClose, onNavigate }: Props) {
       const res = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
       const data = await res.json();
       setHits(data.hits ?? []);
+      setCursor(0);
     } catch {
       setHits([]);
     } finally {
@@ -49,79 +60,152 @@ export default function SearchModal({ open, onClose, onNavigate }: Props) {
     debounceRef.current = setTimeout(() => doSearch(value), 250);
   };
 
+  // Clear any in-flight debounce when the modal goes away.
+  useEffect(
+    () => () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    },
+    [],
+  );
+
+  const choose = useCallback(
+    (hit: SearchHit) => {
+      onNavigate(hit.meetingId, hit.startMs);
+      onClose();
+    },
+    [onNavigate, onClose],
+  );
+
+  /** Arrow keys move the cursor; Enter opens. Typing stays in the input. */
+  const onKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      onClose();
+      return;
+    }
+    if (!hits.length) return;
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setCursor((c) => (c + 1) % hits.length);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setCursor((c) => (c - 1 + hits.length) % hits.length);
+    } else if (event.key === 'Enter') {
+      event.preventDefault();
+      const hit = hits[cursor];
+      if (hit) choose(hit);
+    }
+  };
+
+  // Keep the highlighted row on screen as the cursor moves.
+  useEffect(() => {
+    const node = listRef.current?.querySelector<HTMLElement>(
+      `[data-index="${cursor}"]`,
+    );
+    node?.scrollIntoView({ block: 'nearest' });
+  }, [cursor]);
+
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]"
-      onClick={onClose}
-      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+      className="overlay-enter fixed inset-0 z-50 flex items-start justify-center bg-black/50 px-4 pt-[12vh] backdrop-blur-[2px]"
+      // mousedown, not click: a click fires on the element the pointer is
+      // released over, so selecting text inside the panel and releasing on the
+      // backdrop used to close the dialog mid-selection.
+      onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
-        className="w-full max-w-2xl rounded-xl bg-[var(--bg-raised,#fff)] shadow-2xl border border-[var(--border,#e0e0e0)] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Search across all meetings"
+        onKeyDown={onKeyDown}
+        className="dialog-enter w-full max-w-2xl overflow-hidden rounded-[var(--radius-lg)] border border-[var(--border-strong)] bg-[var(--bg-raised)] shadow-[var(--shadow-lg)]"
       >
-        {/* Search input */}
-        <div className="flex items-center gap-3 px-5 py-4 border-b border-[var(--border,#e0e0e0)]">
-          <span className="text-[var(--text-muted,#888)] text-lg">🔍</span>
+        <div className="flex items-center gap-3 border-b border-[var(--border)] px-5 py-4">
+          <span className="shrink-0 text-[var(--text-faint)]">
+            {loading ? <SpinnerIcon size={18} /> : <SearchIcon size={18} />}
+          </span>
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => handleInput(e.target.value)}
             placeholder="Search across all meetings…"
-            className="flex-1 bg-transparent text-[var(--text,#111)] text-base outline-none placeholder:text-[var(--text-faint,#aaa)]"
-            onKeyDown={(e) => e.key === 'Escape' && onClose()}
+            aria-label="Search query"
+            className="flex-1 bg-transparent text-base text-[var(--text)] outline-none placeholder:text-[var(--text-faint)]"
           />
-          <kbd className="text-xs px-1.5 py-0.5 rounded bg-[var(--bg-hover,#f0f0f0)] text-[var(--text-muted,#888)] border border-[var(--border,#e0e0e0)]">
+          <kbd className="shrink-0 rounded border border-[var(--border)] bg-[var(--bg)] px-1.5 py-0.5 font-sans text-[11px] text-[var(--text-faint)]">
             ESC
           </kbd>
         </div>
 
-        {/* Results */}
-        <div className="max-h-[50vh] overflow-y-auto">
-          {loading && (
-            <div className="px-5 py-4 text-sm text-[var(--text-muted,#888)]">Searching…</div>
-          )}
-
-          {!loading && query.length >= 2 && hits.length === 0 && (
-            <div className="px-5 py-8 text-center text-sm text-[var(--text-muted,#888)]">
-              No results for &ldquo;{query}&rdquo;
-            </div>
-          )}
-
+        <div ref={listRef} className="max-h-[52vh] overflow-y-auto">
           {hits.map((hit, i) => (
             <button
               key={`${hit.meetingId}-${hit.turnId}-${i}`}
-              className="w-full text-left px-5 py-3 hover:bg-[var(--bg-hover,#f8f8f8)] border-b border-[var(--border,#e8e8e8)] transition-colors"
-              onClick={() => {
-                onNavigate(hit.meetingId, hit.startMs);
-                onClose();
-              }}
+              data-index={i}
+              type="button"
+              onMouseEnter={() => setCursor(i)}
+              onClick={() => choose(hit)}
+              className={`block w-full border-b border-[var(--border)] px-5 py-3 text-left transition-colors last:border-b-0 ${
+                i === cursor ? 'bg-[var(--accent-soft)]' : ''
+              }`}
             >
-              <div className="flex items-baseline justify-between gap-2 mb-1">
-                <span className="text-sm font-medium text-[var(--text,#111)] truncate">
+              <div className="mb-1 flex items-baseline justify-between gap-2">
+                <span className="truncate text-sm font-bold text-[var(--text)]">
                   {hit.meetingTitle}
                 </span>
-                <span className="text-xs text-[var(--text-faint,#aaa)] shrink-0">
+                <span className="shrink-0 font-mono text-[11px] tabular-nums text-[var(--text-faint)]">
                   {formatMeetingDate(hit.startedAt)} · {formatTimestamp(hit.startMs)}
                 </span>
               </div>
-              <div className="text-xs text-[var(--text-muted,#666)]">
-                <span className="font-medium">{hit.speakerName}:</span>{' '}
+              <div className="text-xs leading-relaxed text-[var(--text-muted)]">
+                <span className="font-semibold text-[var(--text)]">
+                  {hit.speakerName}:
+                </span>{' '}
                 <HighlightedSnippet snippet={hit.snippet} />
               </div>
             </button>
           ))}
+
+          {!loading && query.trim().length >= 2 && hits.length === 0 && (
+            <p className="px-5 py-10 text-center text-sm text-[var(--text-muted)]">
+              No results for <span className="font-semibold">“{query}”</span>
+            </p>
+          )}
+
+          {query.trim().length < 2 && (
+            <p className="px-5 py-8 text-center text-sm text-[var(--text-faint)]">
+              Type at least 2 characters to search every transcript.
+            </p>
+          )}
         </div>
 
-        {!loading && query.length < 2 && (
-          <div className="px-5 py-6 text-center text-sm text-[var(--text-faint,#aaa)]">
-            Type at least 2 characters to search
+        {hits.length > 0 && (
+          <div className="flex items-center gap-3 border-t border-[var(--border)] bg-[var(--bg)] px-5 py-2 text-[11px] text-[var(--text-faint)]">
+            <span>
+              <Key>↑</Key> <Key>↓</Key> to navigate
+            </span>
+            <span>
+              <Key>↵</Key> to jump
+            </span>
+            <span className="ml-auto tabular-nums">
+              {hits.length} {hits.length === 1 ? 'result' : 'results'}
+            </span>
           </div>
         )}
       </div>
     </div>
+  );
+}
+
+function Key({ children }: { children: React.ReactNode }) {
+  return (
+    <kbd className="rounded border border-[var(--border)] bg-[var(--bg-raised)] px-1 font-sans text-[10px] text-[var(--text-muted)]">
+      {children}
+    </kbd>
   );
 }
 
@@ -132,7 +216,10 @@ function HighlightedSnippet({ snippet }: { snippet: string }) {
     <span>
       {parts.map((part, i) =>
         i % 2 === 1 ? (
-          <mark key={i} className="bg-yellow-200/60 text-[var(--text,#111)] font-semibold rounded px-0.5">
+          <mark
+            key={i}
+            className="rounded bg-[var(--warning-soft)] px-0.5 font-bold text-[var(--text)]"
+          >
             {part}
           </mark>
         ) : (

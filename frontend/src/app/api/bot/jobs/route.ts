@@ -7,10 +7,29 @@
 import { QueueUnavailableError, enqueueJob, listJobs, queueAvailable } from '@/lib/jobs';
 
 export async function GET() {
-  return Response.json({
-    available: queueAvailable(),
-    jobs: await listJobs(),
-  });
+  if (!queueAvailable()) {
+    return Response.json({ available: false, jobs: [], reason: new QueueUnavailableError().message });
+  }
+
+  try {
+    return Response.json({ available: true, jobs: await listJobs() });
+  } catch (err) {
+    /*
+     * `queueAvailable()` only answers "is MONGODB_URI set?" — it cannot know
+     * whether the cluster is actually reachable. When it is not, listJobs()
+     * threw straight out of this handler, Next returned a 500 with an empty
+     * body, and the client's `res.json()` died on "Unexpected end of JSON
+     * input" — once every five seconds, because this is polled.
+     *
+     * A database that is configured but unreachable is a real state the panel
+     * can render, so report it as one instead of crashing.
+     */
+    return Response.json({
+      available: false,
+      jobs: [],
+      reason: `The queue database is configured but unreachable: ${(err as Error).message}`,
+    });
+  }
 }
 
 export async function POST(request: Request) {

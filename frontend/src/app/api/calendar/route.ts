@@ -25,14 +25,27 @@ export async function GET() {
     });
   }
 
-  const [connections, sync] = await Promise.all([listCalendars(), syncCalendars()]);
-  return Response.json({
-    available: true,
-    connections,
-    events: sync.events,
-    queued: sync.queued,
-    errors: sync.errors,
-  });
+  try {
+    const [connections, sync] = await Promise.all([listCalendars(), syncCalendars()]);
+    return Response.json({
+      available: true,
+      connections,
+      events: sync.events,
+      queued: sync.queued,
+      errors: sync.errors,
+    });
+  } catch (err) {
+    // Same trap as /api/bot/jobs: calendarAvailable() reports whether
+    // MONGODB_URI is set, not whether the cluster answers. Without this the
+    // handler threw, Next sent a bodyless 500, and the panel's res.json()
+    // crashed the page rather than showing the unavailable state it has.
+    return Response.json({
+      available: false,
+      connections: [],
+      events: [],
+      reason: `The calendar database is configured but unreachable: ${(err as Error).message}`,
+    });
+  }
 }
 
 export async function POST(request: Request) {

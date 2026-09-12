@@ -1,11 +1,17 @@
 import React from 'react';
 
-export const metadata = { title: 'Design preview — Recap' };
+export const metadata = { title: 'Design preview — Cadence' };
 
 export default function DesignPage() {
   return (
-    <div style={{height: '100vh', width: '100%'}}>
-      <iframe src="/design-index.html" title="Recap design preview" style={{border: 0, width: '100%', height: '100%'}} />
+    // h-full, not 100vh: this sits below a 56px header inside a clipped body,
+    // so a full-viewport frame pushed its own last 56px out of reach.
+    <div className="h-full w-full">
+      <iframe
+        src="/design-index.html"
+        title="Cadence design preview"
+        className="h-full w-full border-0"
+      />
     </div>
   );
 }

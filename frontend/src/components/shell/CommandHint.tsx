@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { SearchIcon } from '@/components/ui/Icon';
 
 /**
  * Global search affordance.
@@ -13,6 +14,15 @@ import { useEffect } from 'react';
 export const OPEN_SEARCH_EVENT = 'cadence:open-search';
 
 export function CommandHint() {
+  // The shortcut is ⌘K on a Mac and Ctrl+K everywhere else, and showing the
+  // wrong one is worse than showing none. The server cannot know, so the hint
+  // resolves after mount.
+  const [isMac, setIsMac] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setIsMac(/Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent));
+  }, []);
+
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (event.key !== '/') return;
@@ -38,20 +48,19 @@ export function CommandHint() {
     <button
       type="button"
       onClick={() => window.dispatchEvent(new CustomEvent(OPEN_SEARCH_EVENT))}
-      className="flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-1.5 text-sm text-[var(--text-muted)] transition-colors hover:border-[var(--border-strong)] hover:text-[var(--text)]"
+      title="Search across every meeting"
+      className="group flex items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--bg-raised)] px-3 py-1.5 text-sm text-[var(--text-muted)] transition duration-150 hover:-translate-y-px hover:border-[var(--border-strong)] hover:text-[var(--text)] hover:shadow-[var(--shadow-md)] active:translate-y-0 active:scale-[0.98]"
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
-        <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2" />
-        <path
-          d="m20 20-3.5-3.5"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-      </svg>
-      <span className="hidden sm:inline">Search meetings</span>
-      <kbd className="hidden rounded border border-[var(--border)] px-1.5 font-sans text-[11px] text-[var(--text-faint)] sm:inline">
-        /
+      <SearchIcon
+        size={14}
+        className="transition-transform duration-200 group-hover:scale-110"
+      />
+      <span className="hidden font-medium sm:inline">Search meetings</span>
+      <kbd
+        suppressHydrationWarning
+        className="hidden rounded border border-[var(--border)] bg-[var(--bg)] px-1.5 py-px font-sans text-[11px] text-[var(--text-faint)] transition-colors group-hover:border-[var(--border-strong)] group-hover:text-[var(--text-muted)] sm:inline"
+      >
+        {isMac === null ? '  ' : isMac ? '⌘K' : 'Ctrl K'}
       </kbd>
     </button>
   );

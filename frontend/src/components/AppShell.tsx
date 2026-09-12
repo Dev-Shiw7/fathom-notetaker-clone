@@ -20,6 +20,8 @@ export default function AppShell({ meetings }: Props) {
   const [loading, setLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [seekTarget, setSeekTarget] = useState<number | null>(null);
+  // Only used below the sidebar breakpoint, where the rail becomes a drawer.
+  const [railOpen, setRailOpen] = useState(false);
 
   useEffect(() => {
     // load details for initial meeting
@@ -65,44 +67,81 @@ export default function AppShell({ meetings }: Props) {
     return () => window.removeEventListener(OPEN_SEARCH_EVENT, open);
   }, []);
 
-  const handleSelect = (id: string) => {
-    setSelectedId(id);
-    // optimistic set
-    setMeeting(meetings.find((m) => m.id === id) ?? null);
-    setTranscript(null);
-    setAnalytics(null);
-    setSummaries([]);
-  };
+  const handleSelect = useCallback(
+    (id: string) => {
+      setSelectedId(id);
+      // optimistic set
+      setMeeting(meetings.find((m) => m.id === id) ?? null);
+      setTranscript(null);
+      setAnalytics(null);
+      setSummaries([]);
+      // On small screens the rail covers the content it just changed.
+      setRailOpen(false);
+    },
+    [meetings],
+  );
 
-  const handleSearchNavigate = useCallback((meetingId: string, startMs: number) => {
-    if (meetingId !== selectedId) {
-      handleSelect(meetingId);
-    }
-    setSeekTarget(startMs);
-  }, [selectedId]);
+  const handleSearchNavigate = useCallback(
+    (meetingId: string, startMs: number) => {
+      if (meetingId !== selectedId) {
+        handleSelect(meetingId);
+      }
+      setSeekTarget(startMs);
+    },
+    [selectedId, handleSelect],
+  );
 
   return (
-    <div style={{display:'flex'}}>
-      <MeetingList
-        meetings={meetings}
-        selectedId={selectedId}
-        onSelect={handleSelect}
-        onSearchClick={() => setSearchOpen(true)}
-      />
-      <div style={{flex:1}}>
+    <div className="relative flex h-full min-h-0">
+      {/* Sidebar rail. A fixed drawer under 900px, a static column above it. */}
+      <div
+        className={`z-30 w-[280px] shrink-0 transition-transform duration-200 max-[899px]:fixed max-[899px]:inset-y-0 max-[899px]:left-0 max-[899px]:shadow-[var(--shadow-lg)] ${
+          railOpen
+            ? 'max-[899px]:translate-x-0'
+            : 'max-[899px]:-translate-x-full'
+        }`}
+      >
+        <MeetingList
+          meetings={meetings}
+          selectedId={selectedId}
+          onSelect={handleSelect}
+        />
+      </div>
+
+      {/* Scrim behind the drawer. */}
+      {railOpen && (
+        <button
+          type="button"
+          aria-label="Close meeting list"
+          onClick={() => setRailOpen(false)}
+          className="overlay-enter fixed inset-0 z-20 bg-black/45 min-[900px]:hidden"
+        />
+      )}
+
+      <div className="min-w-0 flex-1">
         {meeting ? (
           <MainPlayer
             meeting={meeting}
             transcript={transcript}
             analytics={analytics}
             summaries={summaries}
+            loading={loading}
             seekTarget={seekTarget}
             onSeekConsumed={() => setSeekTarget(null)}
+            onOpenRail={() => setRailOpen(true)}
           />
         ) : (
-          <div style={{padding:20}}>Select a meeting</div>
+          <div className="grid h-full place-items-center px-6 text-center">
+            <div>
+              <p className="text-base font-semibold">No meeting selected</p>
+              <p className="mt-1 text-sm text-[var(--text-muted)]">
+                Pick a meeting from the list to see its recording and summary.
+              </p>
+            </div>
+          </div>
         )}
       </div>
+
       <SearchModal
         open={searchOpen}
         onClose={() => setSearchOpen(false)}

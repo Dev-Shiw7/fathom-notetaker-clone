@@ -51,14 +51,53 @@ function clean<T>(doc: unknown): T {
   return rest as T;
 }
 
+/** Throttles the unreachable-database warning; these reads run per request. */
+let lastUnreachableWarning = 0;
+
+/**
+ * Runs a database read, falling back to bundled seed content when the database
+ * is absent **or unreachable**.
+ *
+ * `hasMongo` only answers "is MONGODB_URI set?". Every read here used to branch
+ * on it alone, so a configured-but-unreachable cluster threw straight out of
+ * the data layer and took the whole page down with a 500 — even though the
+ * seed content that makes this repo runnable without a database was sitting
+ * right there. mongo.ts already promises this behaviour ("fail fast and fall
+ * back rather than hang a page load while Atlas is cold or unreachable"); this
+ * is what makes it true.
+ *
+ * Writes deliberately do not use this: silently discarding a write into seed
+ * data would be worse than failing.
+ */
+async function readOrSeed<T>(
+  fromDatabase: () => Promise<T>,
+  fromSeed: () => T,
+): Promise<T> {
+  if (!hasMongo) return fromSeed();
+  try {
+    return await fromDatabase();
+  } catch (err) {
+    const now = Date.now();
+    if (now - lastUnreachableWarning > 30_000) {
+      lastUnreachableWarning = now;
+      console.warn(
+        `[data] database unreachable, serving seed content: ${(err as Error).message}`,
+      );
+    }
+    return fromSeed();
+  }
+}
+
 export async function listMeetings(): Promise<Meeting[]> {
-  const meetings = hasMongo
-    ? (await (await db())
+  const meetings = await readOrSeed(
+    async () =>
+      (await (await db())
         .collection(COLLECTIONS.meetings)
         .find({})
         .sort({ startedAt: -1 })
-        .toArray()).map((d) => clean<Meeting>(d))
-    : [...SEED_MEETINGS.map((m) => m.meeting), ...memoryMeetings];
+        .toArray()).map((d) => clean<Meeting>(d)),
+    () => [...SEED_MEETINGS.map((m) => m.meeting), ...memoryMeetings],
+  );
 
   return [...meetings].sort(
     (a, b) => Date.parse(b.startedAt) - Date.parse(a.startedAt),
@@ -66,59 +105,67 @@ export async function listMeetings(): Promise<Meeting[]> {
 }
 
 export async function getMeeting(id: string): Promise<Meeting | null> {
-  if (!hasMongo) {
-    return (
+  return readOrSeed(
+    async () => {
+      const doc = await (await db()).collection(COLLECTIONS.meetings).findOne({ id });
+      return doc ? clean<Meeting>(doc) : null;
+    },
+    () =>
       SEED_MEETINGS.find((m) => m.meeting.id === id)?.meeting ??
       memoryMeetings.find((m) => m.id === id) ??
-      null
-    );
-  }
-  const doc = await (await db()).collection(COLLECTIONS.meetings).findOne({ id });
-  return doc ? clean<Meeting>(doc) : null;
+      null,
+  );
 }
 
 export async function getTranscript(meetingId: string): Promise<Transcript | null> {
-  if (!hasMongo) {
-    return (
+  return readOrSeed(
+    async () => {
+      const doc = await (await db())
+        .collection(COLLECTIONS.transcripts)
+        .findOne({ meetingId });
+      return doc ? clean<Transcript>(doc) : null;
+    },
+    () =>
       SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.transcript ??
       memoryTranscripts.find((t) => t.meetingId === meetingId) ??
-      null
-    );
-  }
-  const doc = await (await db())
-    .collection(COLLECTIONS.transcripts)
-    .findOne({ meetingId });
-  return doc ? clean<Transcript>(doc) : null;
+      null,
+  );
 }
 
 export async function getSummaries(meetingId: string): Promise<Summary[]> {
-  if (!hasMongo) {
-    return SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.summaries ?? [];
-  }
-  const docs = await (await db())
-    .collection(COLLECTIONS.summaries)
-    .find({ meetingId })
-    .toArray();
-  return docs.map((d) => clean<Summary>(d));
+  return readOrSeed(
+    async () => {
+      const docs = await (await db())
+        .collection(COLLECTIONS.summaries)
+        .find({ meetingId })
+        .toArray();
+      return docs.map((d) => clean<Summary>(d));
+    },
+    () => SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.summaries ?? [],
+  );
 }
 
 export async function getAnalytics(
   meetingId: string,
 ): Promise<MeetingAnalytics | null> {
-  if (!hasMongo) {
-    const seed = SEED_MEETINGS.find((m) => m.meeting.id === meetingId);
-    if (seed) return seed.analytics ?? null;
-    const meeting = memoryMeetings.find((m) => m.id === meetingId);
-    const transcript = memoryTranscripts.find((t) => t.meetingId === meetingId);
-    if (meeting && transcript) {
-      return computeAnalytics(meeting.id, meeting.durationMs, meeting.participants, transcript.turns);
-    }
-    return null;
-  }
-  const doc = await (await db())
-    .collection(COLLECTIONS.analytics)
-    .findOne({ meetingId });
-  return doc ? clean<MeetingAnalytics>(doc) : null;
+  return readOrSeed(
+    async () => {
+      const doc = await (await db())
+        .collection(COLLECTIONS.analytics)
+        .findOne({ meetingId });
+      return doc ? clean<MeetingAnalytics>(doc) : null;
+    },
+    () => {
+      const seed = SEED_MEETINGS.find((m) => m.meeting.id === meetingId);
+      if (seed) return seed.analytics ?? null;
+      const meeting = memoryMeetings.find((m) => m.id === meetingId);
+      const transcript = memoryTranscripts.find((t) => t.meetingId === meetingId);
+      if (meeting && transcript) {
+        return computeAnalytics(meeting.id, meeting.durationMs, meeting.participants, transcript.turns);
+      }
+      return null;
+    },
+  );
 }
 
 export async function getTemplates(): Promise<SummaryTemplate[]> {
@@ -126,15 +173,17 @@ export async function getTemplates(): Promise<SummaryTemplate[]> {
 }
 
 export async function getHighlights(meetingId: string): Promise<Highlight[]> {
-  const stored = hasMongo
-    ? (await (await db())
+  const stored = await readOrSeed(
+    async () =>
+      (await (await db())
         .collection(COLLECTIONS.highlights)
         .find({ meetingId })
-        .toArray()).map((d) => clean<Highlight>(d))
-    : [
-        ...SEED_HIGHLIGHTS.filter((h) => h.meetingId === meetingId),
-        ...memoryHighlights.filter((h) => h.meetingId === meetingId),
-      ];
+        .toArray()).map((d) => clean<Highlight>(d)),
+    () => [
+      ...SEED_HIGHLIGHTS.filter((h) => h.meetingId === meetingId),
+      ...memoryHighlights.filter((h) => h.meetingId === meetingId),
+    ],
+  );
 
   return [...stored].sort((a, b) => a.startMs - b.startMs);
 }

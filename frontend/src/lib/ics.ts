@@ -235,11 +235,43 @@ export async function fetchCalendar(icsUrl: string): Promise<CalendarEvent[]> {
 
   const body = await response.text();
   if (!body.includes('BEGIN:VCALENDAR')) {
-    throw new Error(
-      'That URL did not return an iCalendar feed. In Google Calendar use ' +
-        'Settings → your calendar → "Secret address in iCal format".',
-    );
+    throw new Error(describeNonFeed(body));
   }
 
   return parseIcs(body);
+}
+
+/**
+ * Explains *why* a URL was rejected.
+ *
+ * The old message asserted one cause ("use the Secret address in iCal format")
+ * for every failure, which is misleading twice over: it names Google though any
+ * provider's feed works — the check is on the response body, not the host — and
+ * it says nothing about what actually came back. Pasting the calendar's web
+ * address is by far the most common mistake and returns an HTML page, so say
+ * that, because it points straight at the fix.
+ */
+function describeNonFeed(body: string): string {
+  const head = body.trimStart().slice(0, 200).toLowerCase();
+  const isHtml = head.startsWith('<!doctype html') || head.startsWith('<html');
+
+  const wanted =
+    'A calendar feed is a URL that serves iCalendar text beginning ' +
+    '"BEGIN:VCALENDAR" — usually ending in .ics. In Google Calendar it is ' +
+    'Settings → your calendar in the left sidebar → "Secret address in iCal ' +
+    'format". Outlook, iCloud and Fastmail all publish an equivalent link.';
+
+  if (isHtml) {
+    return (
+      'That URL returned a web page, not a calendar feed. This usually means ' +
+      'the address bar URL was pasted rather than the feed address. ' +
+      wanted
+    );
+  }
+
+  if (!body.trim()) {
+    return `That URL returned an empty response. ${wanted}`;
+  }
+
+  return `That URL did not return an iCalendar feed. ${wanted}`;
 }
