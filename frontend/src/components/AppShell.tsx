@@ -5,6 +5,7 @@ import type { Meeting, Transcript, MeetingAnalytics, Summary } from '@/lib/types
 import MeetingList from './MeetingList';
 import MainPlayer from './MainPlayer';
 import SearchModal from './SearchModal';
+import { OPEN_SEARCH_EVENT } from './shell/CommandHint';
 
 interface Props {
   meetings: Meeting[];
@@ -54,6 +55,14 @@ export default function AppShell({ meetings }: Props) {
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
+  }, []);
+
+  // The header search button and `/` live in the layout, outside this tree, so
+  // they ask for the modal by event rather than navigating to a route.
+  useEffect(() => {
+    const open = () => setSearchOpen(true);
+    window.addEventListener(OPEN_SEARCH_EVENT, open);
+    return () => window.removeEventListener(OPEN_SEARCH_EVENT, open);
   }, []);
 
   const handleSelect = (id: string) => {

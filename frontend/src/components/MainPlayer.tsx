@@ -55,9 +55,15 @@ export default function MainPlayer({ meeting, transcript, analytics, summaries, 
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
-        setBotStatus(`Error: ${data.error}`);
+        // A stubbed capture layer is a deliberate decision, not a failure —
+        // say what it is and how to run the real bot, rather than "Error:".
+        setBotStatus(
+          data.stubbed
+            ? `${data.error} ${data.detail ?? ''}`
+            : `Error: ${data.error}`,
+        );
         return;
       }
 

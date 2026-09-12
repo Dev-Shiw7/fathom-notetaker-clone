@@ -3,12 +3,16 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
+/**
+ * Only routes that actually exist are listed here.
+ *
+ * This previously advertised /meetings, /analytics, /ask and /settings, none of
+ * which were built — so a visitor's first click on the live link landed on a
+ * 404. A short honest nav beats a long nav that lies.
+ */
 const LINKS = [
-  { href: '/', label: 'Home' },
-  { href: '/meetings', label: 'Meetings' },
-  { href: '/analytics', label: 'Analytics' },
-  { href: '/ask', label: 'Ask' },
-  { href: '/settings', label: 'Settings' },
+  { href: '/', label: 'Meetings' },
+  { href: '/design', label: 'Design system' },
 ];
 
 export function NavLinks() {
@@ -18,9 +22,7 @@ export function NavLinks() {
     <nav className="-mx-1 flex min-w-0 items-center gap-0.5 overflow-x-auto">
       {LINKS.map((link) => {
         const active =
-          link.href === '/'
-            ? pathname === '/'
-            : pathname.startsWith(link.href);
+          link.href === '/' ? pathname === '/' : pathname.startsWith(link.href);
         return (
           <Link
             key={link.href}

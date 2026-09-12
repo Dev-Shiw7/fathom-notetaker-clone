@@ -8,8 +8,36 @@ import { writeFileSync } from 'fs';
  */
 const activeBots: Map<string, { pid: number; meetingId: string; startedAt: Date }> = new Map();
 
+/**
+ * Whether this instance can actually drive the capture bot.
+ *
+ * The bot is a separate Playwright process living in `../backend`. That sibling
+ * directory, `tsx`, and a real Chrome all exist on a developer's machine and
+ * none of them exist on the deployed host — so spawning there fails with an
+ * opaque 500. Gating on an explicit opt-in lets the deployed app say what is
+ * actually true instead.
+ */
+const CAPTURE_ENABLED = process.env.ENABLE_CAPTURE_BOT === '1';
+
 export async function POST(request: Request) {
   try {
+    if (!CAPTURE_ENABLED) {
+      // Deliberate scope cut, stated plainly rather than failing obscurely.
+      return Response.json(
+        {
+          error: 'Capture layer is stubbed in this deployment.',
+          detail:
+            'The Google Meet bot is real and lives in /backend — it launches Chrome, ' +
+            'classifies the pre-join screen, mutes camera and mic, sets its name and ' +
+            'requests admission. It is not wired into the hosted demo because it needs ' +
+            'a browser process and a human to admit it. Run it locally with: ' +
+            'npm run backend -- join --url <meet-url>',
+          stubbed: true,
+        },
+        { status: 501 },
+      );
+    }
+
     const body = await request.json();
     const { meetingId, meetingUrl, botName = 'Notetaker' } = body;
 

@@ -1,0 +1,21 @@
+# Render deployment.
+#
+# Only the Next.js frontend is deployed. The capture bot in /backend is
+# deliberately not hosted: it drives a real Chrome process and needs a human to
+# admit it to a meeting, neither of which belongs in a public web service. The
+# deployed app says so via /api/bot/join rather than failing obscurely.
+services:
+  - type: web
+    name: cadence-notetaker
+    runtime: node
+    plan: free
+    # Build from the repo root so npm workspaces resolve, then build the app.
+    buildCommand: npm install && npm run build --workspace @notetaker/frontend
+    startCommand: npm run start --workspace @notetaker/frontend
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      # Unset on purpose. The data layer falls back to bundled seed content, so
+      # the demo works with no database to provision. Set this to point at Atlas.
+      - key: MONGODB_URI
+        sync: false
