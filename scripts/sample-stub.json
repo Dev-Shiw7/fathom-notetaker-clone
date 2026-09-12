@@ -1,0 +1,24 @@
+{
+  "meeting": {
+    "id": "stub-meeting-1",
+    "title": "Stubbed demo meeting",
+    "startedAt": "2026-09-12T10:00:00.000Z",
+    "durationMs": 120000,
+    "platform": "meet",
+    "participants": [
+      { "id": "p1", "name": "Alice" },
+      { "id": "p2", "name": "Bob" }
+    ]
+  },
+  "transcript": {
+    "meetingId": "stub-meeting-1",
+    "turns": [
+      { "id": "t1", "speakerId": "p1", "startMs": 0, "endMs": 30000, "text": "Hi Bob, thanks for joining.", "language": "en-US" },
+      { "id": "t2", "speakerId": "p2", "startMs": 30000, "endMs": 90000, "text": "Thanks Alice. Quick update: the deployment is scheduled.", "language": "en-US" }
+    ],
+    "language": "en-US"
+  },
+  "summaries": [
+    { "id": "s1", "meetingId": "stub-meeting-1", "templateId": "default", "text": "Quick sync — deployment scheduled.", "createdAt": "2026-09-12T11:00:00.000Z" }
+  ]
+}
