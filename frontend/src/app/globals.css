@@ -1,58 +1,68 @@
 @import 'tailwindcss';
 
 /* ===========================================================================
-   Cadence design tokens
+   Recap design tokens
    ---------------------------------------------------------------------------
    One source of truth for colour. Components address these by semantic role
    (--text-muted, --bg-raised) rather than by shade, which is what lets the
-   dark palette below be a pure token swap with no component changes.
+   light palette below be a pure token swap with no component changes.
+
+   Dark is the default here, and deliberately not tied to `prefers-color-scheme`
+   — the product's own surface is dark the way a video tool's is, and the
+   toggle in the app bar is what changes it. Only an explicit choice is stamped
+   onto <html data-theme>.
 
    The legacy names (--ink, --panel, --muted …) are kept as aliases at the
-   bottom of each block so the older hand-written CSS classes in this file keep
-   working; nothing new should reach for them.
+   bottom of each block so older hand-written CSS keeps working; nothing new
+   should reach for them.
    =========================================================================== */
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
   /* Surfaces, back to front. */
-  --bg: #f4f5fa;
-  --bg-raised: #ffffff;
-  --bg-panel: #ffffff;
-  --bg-hover: #eef0f7;
-  --bg-sunken: #e9ebf3;
+  --bg: #0c0c0e;
+  --bg-raised: #161619;
+  --bg-panel: #1a1a1e;
+  --bg-hover: #232329;
+  --bg-sunken: #08080a;
 
   /* Text, strongest to faintest. */
-  --text: #12141c;
-  --text-muted: #5d6278;
-  --text-faint: #8b90a6;
+  --text: #f2f3f6;
+  --text-muted: #9b9ca6;
+  --text-faint: #6d6e79;
 
   /* Lines. */
-  --border: #e4e7f0;
-  --border-strong: #cdd2e2;
+  --border: #26262c;
+  --border-strong: #3a3a44;
 
   /* Brand. */
-  --accent: #5b4bff;
-  --accent-hover: #4839f0;
-  --accent-soft: #eeecff;
-  --accent-ring: rgba(91, 75, 255, 0.38);
+  --accent: #3d8bff;
+  --accent-hover: #5c9fff;
+  --accent-soft: rgba(61, 139, 255, 0.14);
+  --accent-ring: rgba(61, 139, 255, 0.45);
   --accent-contrast: #ffffff;
+  /* The logo mark and every "AI" affordance share this ramp. */
+  --brand-from: #3d8bff;
+  --brand-to: #22d3ee;
 
   /* Status. */
-  --positive: #0f9b6c;
-  --positive-soft: #e2f7ef;
-  --warning: #b5761b;
-  --warning-soft: #fdf1dd;
-  --danger: #d33d52;
-  --danger-soft: #fdeaed;
+  --positive: #34d399;
+  --positive-soft: rgba(52, 211, 153, 0.14);
+  --warning: #f0b357;
+  --warning-soft: rgba(240, 179, 87, 0.16);
+  --danger: #f87184;
+  --danger-soft: rgba(248, 113, 132, 0.14);
+  /* The points/star pill in the app bar. */
+  --gold: #f5b842;
 
   /* Shape & depth. */
-  --radius: 14px;
-  --radius-sm: 9px;
-  --radius-lg: 18px;
-  --shadow-sm: 0 1px 2px rgba(18, 20, 28, 0.06);
-  --shadow-md: 0 4px 14px -4px rgba(18, 20, 28, 0.14);
-  --shadow-lg: 0 18px 44px -12px rgba(18, 20, 28, 0.26);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 14px -4px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, 0.78);
 
   /* Motion. */
   --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
@@ -62,91 +72,53 @@
   /* Legacy aliases — do not use in new code. */
   --panel: var(--bg-raised);
   --ink: var(--text);
-  --ink-2: #1c1f2b;
+  --ink-2: #ffffff;
   --muted: var(--text-muted);
   --accent-dim: var(--accent-soft);
-  --accent-2: #ff5c7c;
+  --accent-2: #22d3ee;
   --good: var(--positive);
   --good-dim: var(--positive-soft);
-  --gold: var(--warning);
 }
 
-/* Dark palette. Applies when the OS asks for it, unless the user has
-   explicitly chosen light; an explicit [data-theme] always wins. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    color-scheme: dark;
+/* Light palette. Only ever applied by an explicit choice from the toggle. */
+:root[data-theme='light'] {
+  color-scheme: light;
 
-    --bg: #0c0e16;
-    --bg-raised: #14161f;
-    --bg-panel: #14161f;
-    --bg-hover: #1d202c;
-    --bg-sunken: #090a11;
+  --bg: #f6f7f9;
+  --bg-raised: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-hover: #eef0f4;
+  --bg-sunken: #e7e9ef;
 
-    --text: #eef0f7;
-    --text-muted: #a0a6bd;
-    --text-faint: #6e7490;
+  --text: #14161b;
+  --text-muted: #5c6172;
+  --text-faint: #8a8f9f;
 
-    --border: #242736;
-    --border-strong: #363b4f;
+  --border: #e3e6ed;
+  --border-strong: #c9cedb;
 
-    --accent: #8b7cff;
-    --accent-hover: #9d90ff;
-    --accent-soft: #201d3d;
-    --accent-ring: rgba(139, 124, 255, 0.45);
-    --accent-contrast: #0c0e16;
+  --accent: #1d6fe0;
+  --accent-hover: #175cbd;
+  --accent-soft: rgba(29, 111, 224, 0.1);
+  --accent-ring: rgba(29, 111, 224, 0.38);
+  --accent-contrast: #ffffff;
+  --brand-from: #1d6fe0;
+  --brand-to: #0ea5c4;
 
-    --positive: #34d399;
-    --positive-soft: #10281f;
-    --warning: #f0b357;
-    --warning-soft: #2a2010;
-    --danger: #f87184;
-    --danger-soft: #2c151a;
+  --positive: #0f9b6c;
+  --positive-soft: #e2f7ef;
+  --warning: #b5761b;
+  --warning-soft: #fdf1dd;
+  --danger: #d33d52;
+  --danger-soft: #fdeaed;
+  --gold: #c98a12;
 
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-    --shadow-md: 0 4px 14px -4px rgba(0, 0, 0, 0.6);
-    --shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, 0.75);
+  --shadow-sm: 0 1px 2px rgba(18, 20, 28, 0.06);
+  --shadow-md: 0 4px 14px -4px rgba(18, 20, 28, 0.14);
+  --shadow-lg: 0 18px 44px -12px rgba(18, 20, 28, 0.26);
 
-    --ink-2: #f7f8fc;
-    --accent-2: #ff7d97;
-  }
-}
-
-:root[data-theme='dark'] {
-  color-scheme: dark;
-
-  --bg: #0c0e16;
-  --bg-raised: #14161f;
-  --bg-panel: #14161f;
-  --bg-hover: #1d202c;
-  --bg-sunken: #090a11;
-
-  --text: #eef0f7;
-  --text-muted: #a0a6bd;
-  --text-faint: #6e7490;
-
-  --border: #242736;
-  --border-strong: #363b4f;
-
-  --accent: #8b7cff;
-  --accent-hover: #9d90ff;
-  --accent-soft: #201d3d;
-  --accent-ring: rgba(139, 124, 255, 0.45);
-  --accent-contrast: #0c0e16;
-
-  --positive: #34d399;
-  --positive-soft: #10281f;
-  --warning: #f0b357;
-  --warning-soft: #2a2010;
-  --danger: #f87184;
-  --danger-soft: #2c151a;
-
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-md: 0 4px 14px -4px rgba(0, 0, 0, 0.6);
-  --shadow-lg: 0 18px 44px -12px rgba(0, 0, 0, 0.75);
-
-  --ink-2: #f7f8fc;
-  --accent-2: #ff7d97;
+  --ink-2: #000000;
+  --accent-2: #0ea5c4;
 }
 
 /* Expose the semantic roles to Tailwind so `bg-panel` / `text-muted` resolve
@@ -204,7 +176,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   /* The app shell owns its own scrolling regions; the page itself never
-     scrolls. Previously this also clipped the sticky header's 56px off the
+     scrolls. Previously this also clipped the sticky header's height off the
      bottom of the viewport, because the shell below it was a full 100dvh. */
   overflow: hidden;
 }
@@ -305,212 +277,660 @@ input:disabled {
 }
 
 /* ===========================================================================
-   Sidebar rail
+   App bar
+
+   The one piece of chrome present on every route: brand, global AI search,
+   and account-level actions.
    =========================================================================== */
 
-.sidebar {
+.appbar {
+  flex-shrink: 0;
   background: var(--bg-panel);
-  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  z-index: 40;
+}
+
+.appbar-inner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  height: 56px;
+  padding: 0 16px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+}
+
+.brand-mark {
+  display: block;
+  flex-shrink: 0;
+  transition: transform var(--med) var(--ease);
+}
+
+.brand:hover .brand-mark {
+  transform: rotate(-8deg) scale(1.08);
+}
+
+.brand:active .brand-mark {
+  transform: scale(0.94);
+}
+
+.brand-name {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+/* Global search. A button rather than an input: it opens the search dialog,
+   and a real input here would be a second place to type the same query. */
+.searchfield {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  max-width: 440px;
+  height: 36px;
+  padding: 0 13px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text-faint);
+  font: inherit;
+  font-size: 13.5px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color var(--fast) var(--ease),
+    background-color var(--fast) var(--ease), color var(--fast) var(--ease);
+}
+
+.searchfield:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+}
+
+.searchfield .sf-spark {
+  color: var(--brand-to);
+  flex-shrink: 0;
+  transition: transform var(--med) var(--ease);
+}
+
+.searchfield:hover .sf-spark {
+  transform: scale(1.15) rotate(8deg);
+}
+
+/* Text-and-icon actions on the right of the app bar. */
+.appbar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 7px 9px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color var(--fast) var(--ease),
+    background-color var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+
+.appbar-action:hover {
+  color: var(--text);
+  background: var(--bg-hover);
+  transform: translateY(-1px);
+}
+
+.appbar-action:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* The points pill. Decorative in this build, and labelled as such. */
+.points-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 5px 10px 5px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--gold);
+  font-size: 12.5px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.avatar-btn {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+  color: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: transform var(--fast) var(--ease),
+    box-shadow var(--med) var(--ease);
+}
+
+.avatar-btn:hover {
+  transform: scale(1.08);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.avatar-btn:active {
+  transform: scale(0.96);
+}
+
+/* Popover used by the Help menu. */
+.popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  z-index: 50;
+  width: 264px;
+  padding: 6px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border-strong);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-lg);
+}
+
+.popover-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color var(--fast) var(--ease),
+    color var(--fast) var(--ease);
+}
+
+.popover-item:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+/* ===========================================================================
+   Workspace tabs (My Calls / Team Calls / Folders / Playlists)
+   =========================================================================== */
+
+.tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  position: relative;
+  flex-shrink: 0;
+  padding: 14px 12px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+
+.tab:hover {
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.tab[aria-selected='true'] {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.tab[aria-selected='true']::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+/* ===========================================================================
+   Call library
+   =========================================================================== */
+
+/* The library and its Ask column. */
+.library-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  min-height: 0;
+  flex: 1;
+}
+
+.library {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 22px 20px 60px 20px;
+}
+
+.date-heading {
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 0 0 14px 0;
+}
+
+/*
+ * `min(340px, 100%)` rather than a bare 340px: a bare track floor is a
+ * *minimum*, so on a phone the column stays 340px wide inside a ~300px
+ * content box and every card overflows the screen. Capping the floor at the
+ * container's own width collapses it to a single full-width column instead.
+ */
+.call-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+  gap: 28px 22px;
+  margin-bottom: 34px;
+}
+
+.call-card {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/*
+ * The thumbnail. A recording still would sit here in a product with video;
+ * this build has audio and transcripts, so the frame is drawn from what the
+ * meeting actually is — a screen-share surface with the speaker tiles railed
+ * down the right, which is the shape Meet/Zoom recordings arrive in.
+ */
+.call-thumb {
+  position: relative;
+  display: flex;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-sunken);
+  transition: border-color var(--med) var(--ease),
+    box-shadow var(--med) var(--ease), transform var(--med) var(--ease);
+}
+
+.call-card:hover .call-thumb {
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-3px);
+}
+
+.call-card:active .call-thumb {
+  transform: translateY(-1px) scale(0.995);
+}
+
+.call-stage {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 12px;
+  background: radial-gradient(
+      120% 120% at 20% 0%,
+      rgba(61, 139, 255, 0.18) 0%,
+      transparent 62%
+    ),
+    linear-gradient(140deg, #1b1e2b, #0e0f16);
+}
+
+/* Speaker tiles down the right edge, as a call recording shows them. */
+.call-tiles {
+  display: flex;
+  flex-direction: column;
+  width: 26%;
+  max-width: 96px;
+  flex-shrink: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.call-tile {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+}
+
+.call-tile:last-child {
+  border-bottom: none;
+}
+
+/*
+ * Duration badge, bottom-right of the *stage* rather than of the whole frame.
+ * Anchored to the frame it lands on top of the speaker tiles, and a tile
+ * showing centred initials has nothing to spare underneath them — a face can
+ * survive the overlap, "+5" cannot.
+ */
+.call-dur {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  backdrop-filter: blur(3px);
+}
+
+/* The play affordance that fades up over the frame on hover. */
+.call-play {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.32);
+  opacity: 0;
+  transition: opacity var(--med) var(--ease);
+}
+
+.call-card:hover .call-play,
+.call-card:focus-visible .call-play {
+  opacity: 1;
+}
+
+.call-play span {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  transition: transform var(--med) var(--ease);
+}
+
+.call-card:hover .call-play span {
+  transform: scale(1.08);
+}
+
+.call-title {
+  margin: 10px 0 0 0;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  transition: color var(--fast) var(--ease);
+}
+
+.call-card:hover .call-title {
+  color: var(--accent);
+}
+
+.call-meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.chip {
+  display: inline-block;
+  max-width: 170px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+/* ===========================================================================
+   Ask panel — the right-hand column on the library, a tab on a call
+   =========================================================================== */
+
+.ask-panel {
   display: flex;
   flex-direction: column;
   min-height: 0;
   height: 100%;
-  overflow: hidden;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
 }
 
-/* .brand / .brand-mark / .brand-name lived here for the rail's own "Cadence"
-   wordmark, which was a duplicate of the header's and has been removed. The
-   header logo is plain utilities in layout.tsx, so nothing references these.
-   (The standalone prototype at /design carries its own inline copies.) */
+/*
+ * The same panel as a tab inside a call, where it is not a column of its own:
+ * no dividing edge, and it stretches inside the flex parent rather than
+ * claiming a hard 100% height.
+ */
+.ask-panel--bare {
+  height: auto;
+  flex: 1;
+  min-height: 0;
+  border-left: none;
+  background: none;
+}
 
-.new-btn {
-  margin: 0 14px 14px 14px;
-  background: var(--text);
-  color: var(--bg-raised);
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: 10px;
-  font-weight: 700;
-  font-size: 13px;
-  cursor: pointer;
+.ask-panel--bare .ask-head,
+.ask-panel--bare .ask-body,
+.ask-panel--bare .ask-foot {
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.ask-head {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 6px;
-  transition: transform var(--fast) var(--ease),
-    box-shadow var(--med) var(--ease), opacity var(--fast) var(--ease);
-}
-
-.new-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: var(--shadow-md);
-  opacity: 0.92;
-}
-
-.new-btn:active {
-  transform: translateY(0) scale(0.985);
-  box-shadow: var(--shadow-sm);
-}
-
-.section-label {
-  font-size: 10.5px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 15px 18px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--text-faint);
-  margin: 2px 20px 8px 20px;
+  color: var(--text-muted);
 }
 
-.meeting-list {
+.ask-body {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 0 10px 16px 10px;
-}
-
-/* Meeting row. A real <button>, so it is reachable by keyboard. */
-.m-card {
   display: flex;
+  flex-direction: column;
   gap: 10px;
-  width: 100%;
-  text-align: left;
-  padding: 9px 10px;
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  background: none;
-  color: inherit;
+  padding: 12px 18px;
+}
+
+/*
+ * Bottom-aligned like a chat log, but via `margin-top: auto` rather than
+ * `justify-content: flex-end`. They look identical until the thread outgrows
+ * the panel: with justify-content the overflow goes off the *top* of a
+ * scroll container, and the browser will not let you scroll back up to it.
+ */
+.ask-body > :first-child {
+  margin-top: auto;
+}
+
+.ask-suggest {
+  align-self: flex-end;
+  max-width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  color: var(--text);
   font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: left;
   cursor: pointer;
-  margin-bottom: 2px;
-  position: relative;
-  transition: background-color var(--fast) var(--ease),
-    border-color var(--fast) var(--ease), transform var(--fast) var(--ease);
+  transition: border-color var(--fast) var(--ease),
+    background-color var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
 
-.m-card:hover {
-  background: var(--bg-hover);
-  transform: translateX(2px);
-}
-
-.m-card:active {
-  transform: translateX(2px) scale(0.99);
-}
-
-.m-card.active {
+.ask-suggest:hover {
+  border-color: var(--accent);
   background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  transform: translateY(-1px);
 }
 
-/* The selected row gets a spine, so selection survives at a glance even when
-   the accent tint is subtle. */
-.m-card.active::before {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 9px;
-  bottom: 9px;
-  width: 3px;
-  border-radius: 3px;
+.ask-suggest:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* A question the visitor asked, and the answer under it. */
+.ask-question {
+  align-self: flex-end;
+  max-width: 92%;
+  padding: 9px 13px;
+  border-radius: var(--radius);
   background: var(--accent);
+  color: var(--accent-contrast);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
 }
 
-.m-thumb {
-  width: 52px;
-  height: 38px;
-  border-radius: 8px;
-  flex-shrink: 0;
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(135deg, #2b2f45, #171925);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #fff;
-  transition: transform var(--med) var(--ease);
-}
-
-.m-card:hover .m-thumb {
-  transform: scale(1.06);
-}
-
-.m-info {
-  min-width: 0;
-  flex: 1;
-}
-
-.m-title {
-  font-size: 12.5px;
-  font-weight: 700;
-  line-height: 1.35;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: color var(--fast) var(--ease);
-}
-
-.m-card:hover .m-title {
-  color: var(--accent);
-}
-
-.m-card.active .m-title {
-  color: var(--accent);
-}
-
-.m-sub {
-  font-size: 11px;
+.ask-answer {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  font-size: 13px;
+  line-height: 1.6;
   color: var(--text-muted);
-  margin-top: 3px;
+}
+
+.ask-foot {
+  flex-shrink: 0;
+  padding: 12px 18px 18px 18px;
+}
+
+.ask-input {
   display: flex;
-  gap: 5px;
   align-items: center;
+  gap: 8px;
+  padding: 8px 8px 8px 14px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--bg-raised);
+  transition: border-color var(--fast) var(--ease);
+}
+
+.ask-input:focus-within {
+  border-color: var(--accent);
+}
+
+.ask-input input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13.5px;
+  outline: none;
+}
+
+.ask-input input::placeholder {
+  color: var(--text-faint);
+}
+
+.ask-send {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color var(--fast) var(--ease),
+    color var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+
+.ask-send:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--accent-contrast);
+  transform: scale(1.08);
+}
+
+.ask-send:active:not(:disabled) {
+  transform: scale(0.94);
 }
 
 /* ===========================================================================
-   Main column
+   Buttons
    =========================================================================== */
-
-.main {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  height: 100%;
-  overflow: hidden;
-}
-
-.topbar {
-  padding: 16px 24px 14px 24px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-panel);
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.tb-title {
-  font-size: 19px;
-  font-weight: 800;
-  letter-spacing: -0.015em;
-  margin: 0 0 5px 0;
-  line-height: 1.25;
-}
-
-.tb-meta {
-  font-size: 12.5px;
-  color: var(--text-muted);
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
-  align-items: center;
-}
-
-.tb-actions {
-  display: flex;
-  gap: 8px;
-  flex-shrink: 0;
-}
 
 .btn {
   font-size: 12.5px;
@@ -559,73 +979,99 @@ input:disabled {
   justify-content: center;
 }
 
-.workspace {
-  flex: 1;
-  min-height: 0;
+/* ===========================================================================
+   Call detail
+   =========================================================================== */
+
+.call-view {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 
-.left-pane {
+.call-left {
   min-width: 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  padding: 18px 24px 0 24px;
+  padding: 18px 22px 0 22px;
 }
 
-.right-pane {
-  border-left: 1px solid var(--border);
-  background: var(--bg-panel);
-  min-height: 0;
+/*
+ * The stage owns the player's height, so the panel below it can be given room
+ * on demand.
+ *
+ * This is deliberately a resizable box rather than a locked `aspect-ratio`:
+ * together with the transport, ribbon and legend a fixed 16:9 frame is ~570px
+ * of immovable furniture, which on a laptop leaves the transcript about 180px
+ * with no way to reclaim any of it. Height is the user's to set, and the
+ * choice is remembered.
+ */
+.player-stage {
+  position: relative;
+  flex-shrink: 0;
   overflow: hidden;
-  display: flex;
-  flex-direction: column;
 }
 
-/* Below this the two side panels stop fitting; the right pane drops away and
-   the meeting detail takes the full width. */
-@media (max-width: 1180px) {
-  .workspace {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .right-pane {
-    display: none;
-  }
+/* Only animate when not dragging; a transition during a drag feels like lag. */
+.player-stage:not(.dragging) {
+  transition: height var(--med) var(--ease);
 }
-
-/* ===========================================================================
-   Player
-   =========================================================================== */
 
 .player {
-  background:
-    radial-gradient(
+  background: radial-gradient(
       120% 120% at 50% 0%,
-      rgba(91, 75, 255, 0.22) 0%,
+      rgba(61, 139, 255, 0.2) 0%,
       transparent 60%
     ),
-    linear-gradient(135deg, #1c1f30, #0f111a);
+    linear-gradient(140deg, #1b1e2b, #0c0d13);
   border-radius: var(--radius);
-  aspect-ratio: 16 / 9;
-  /* Without a cap, a 16:9 box at full pane width pushes the transcript
-     entirely below the fold on laptop screens. */
-  max-height: min(38vh, 320px);
+  height: 100%;
   position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  flex-shrink: 0;
   border: 1px solid var(--border);
 }
 
+/* Grab strip between the player and everything below it. */
+.player-resize {
+  height: 12px;
+  flex-shrink: 0;
+  cursor: row-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  padding: 0;
+  width: 100%;
+  touch-action: none;
+}
+
+.player-resize::after {
+  content: '';
+  width: 42px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--border-strong);
+  transition: background-color var(--fast) var(--ease),
+    width var(--fast) var(--ease);
+}
+
+.player-resize:hover::after,
+.player-resize:focus-visible::after {
+  background: var(--accent);
+  width: 68px;
+}
+
 .player .center-play {
-  width: 60px;
-  height: 60px;
+  width: 62px;
+  height: 62px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.14);
   color: #fff;
@@ -657,7 +1103,7 @@ input:disabled {
   color: #edeef7;
   font-size: 13px;
   line-height: 1.5;
-  background: rgba(0, 0, 0, 0.42);
+  background: rgba(0, 0, 0, 0.45);
   padding: 7px 11px;
   border-radius: 8px;
   backdrop-filter: blur(4px);
@@ -667,59 +1113,197 @@ input:disabled {
   overflow: hidden;
 }
 
-/* ===========================================================================
-   Right-hand panel tabs
-   =========================================================================== */
-
-.r-tabs {
+/* Tabs under the player: Summary / Transcript / Ask. */
+.vtabs {
   display: flex;
-  border-bottom: 1px solid var(--border);
+  align-items: center;
+  gap: 2px;
   flex-shrink: 0;
-  background: var(--bg-panel);
+  margin-top: 14px;
+  border-bottom: 1px solid var(--border);
 }
 
-.r-tab {
-  flex: 1;
-  text-align: center;
-  padding: 13px 0;
+.vtab {
+  position: relative;
+  padding: 11px 14px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
   font-size: 12.5px;
   font-weight: 700;
-  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
   cursor: pointer;
-  position: relative;
-  background: none;
-  border: none;
-  font-family: inherit;
-  transition: color var(--fast) var(--ease),
-    background-color var(--fast) var(--ease);
+  transition: color var(--fast) var(--ease), transform var(--fast) var(--ease);
 }
 
-.r-tab:hover {
+.vtab:hover {
   color: var(--text);
-  background: var(--bg-hover);
+  transform: translateY(-1px);
 }
 
-.r-tab[aria-selected='true'] {
+.vtab[aria-selected='true'] {
   color: var(--accent);
 }
 
-.r-tab[aria-selected='true']::after {
+.vtab[aria-selected='true']::after {
   content: '';
   position: absolute;
-  left: 14px;
-  right: 14px;
+  left: 10px;
+  right: 10px;
   bottom: -1px;
   height: 2px;
-  background: var(--accent);
   border-radius: 2px;
+  background: var(--accent);
 }
 
-.r-content {
+/* The scrolling region under the tabs. */
+.vpanel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.vscroll {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 18px 18px 40px 18px;
+  padding: 16px 2px 40px 2px;
+}
+
+/* ===========================================================================
+   Call detail — right rail
+   =========================================================================== */
+
+.rail {
+  border-left: 1px solid var(--border);
+  background: var(--bg-panel);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 18px 48px 18px;
+}
+
+.rail-title {
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.rail-label {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 26px 0 10px 0;
+}
+
+/* The big share affordance, styled as Fathom's is: a full-width tinted bar. */
+.share-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+
+.share-bar:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.share-bar:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.attendee {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 0;
+}
+
+.attendee-name {
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.attendee-sub {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.3;
+}
+
+.action-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border);
+}
+
+.action-item:first-of-type {
+  border-top: none;
+}
+
+/* A real checkbox; ticking one is local to the visit and says so. */
+.action-check {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 4px;
+  border: 1.5px solid var(--border-strong);
+  background: none;
+  color: var(--accent-contrast);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background-color var(--fast) var(--ease),
+    border-color var(--fast) var(--ease), transform var(--fast) var(--ease);
+}
+
+.action-check:hover {
+  border-color: var(--accent);
+  transform: scale(1.12);
+}
+
+.action-check[aria-checked='true'] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* ===========================================================================
+   Shared bits
+   =========================================================================== */
+
+.section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  margin: 2px 20px 8px 20px;
 }
 
 .sec-title {
@@ -734,10 +1318,6 @@ input:disabled {
 .sec-title:first-child {
   margin-top: 0;
 }
-
-/* ===========================================================================
-   Utilities
-   =========================================================================== */
 
 /* Loading placeholder. */
 .skeleton {
@@ -804,10 +1384,99 @@ input:disabled {
   animation: dialog-in var(--med) var(--ease) both;
 }
 
-/* Scrollbars: present, but out of the way until you are over the region. */
+/* ===========================================================================
+   Responsive
+
+   Two breakpoints, and both are about the same thing: the side column stops
+   fitting before the main content does, so it goes first.
+   =========================================================================== */
+
+/* The library's Ask column collapses into a route of its own affordance. */
+@media (max-width: 1100px) {
+  .library-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .library-split > .ask-panel {
+    display: none;
+  }
+}
+
+/*
+ * The call view's rail stacks under the player rather than disappearing. It
+ * holds the attendees, the action items and the share button — hiding it would
+ * make all three unreachable on a phone, which is worse than a long page.
+ *
+ * Stacking means the view stops being a fixed-height frame and becomes a
+ * scrolling document, so the tab panel is given an explicit height: everything
+ * inside it (the transcript's own scroller, the Ask log) is built on flex
+ * children that resolve to zero in a parent with no bounded height.
+ */
+@media (max-width: 1080px) {
+  .call-view {
+    grid-template-columns: minmax(0, 1fr);
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+  }
+
+  .call-left {
+    height: auto;
+    overflow: visible;
+    padding: 14px 16px 0 16px;
+  }
+
+  .vpanel {
+    flex: none;
+    height: 70vh;
+  }
+
+  .rail {
+    overflow: visible;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    margin-top: 20px;
+  }
+}
+
+/* Phone. The app bar keeps its actions as icons and the search field becomes
+   one of them rather than wrapping onto a second row. */
+@media (max-width: 640px) {
+  .appbar-inner {
+    gap: 8px;
+    padding: 0 10px;
+  }
+
+  .searchfield {
+    min-width: 40px;
+    padding: 0 10px;
+  }
+
+  .library {
+    padding: 18px 14px 60px 14px;
+  }
+
+  .tabs {
+    padding: 0 8px;
+  }
+}
+
+/* ===========================================================================
+   Scrollbars: a hairline at rest, full grip when you are over the region.
+
+   The track keeps a constant 10px so nothing reflows when the thumb thickens;
+   only the transparent border around the thumb changes, which moves the
+   *visible* thumb between 2px and 6px. Painting the thumb through
+   `background-clip: content-box` is what makes that border read as padding.
+
+   The previous rule tried `*:hover > ::-webkit-scrollbar-thumb`, which cannot
+   match anything — a scrollbar pseudo-element is not a child of the element,
+   so the hover state never applied and every scrollbar sat at full thickness.
+   =========================================================================== */
+
 ::-webkit-scrollbar {
-  width: 9px;
-  height: 9px;
+  width: 10px;
+  height: 10px;
 }
 
 ::-webkit-scrollbar-track {
@@ -815,16 +1484,46 @@ input:disabled {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 8px;
-  border: 2px solid transparent;
+  background-color: var(--border);
+  border: 4px solid transparent;
+  border-radius: 999px;
   background-clip: content-box;
 }
 
-*:hover > ::-webkit-scrollbar-thumb,
-*::-webkit-scrollbar-thumb:hover,
+/* Hovering the scrolling element thickens its own scrollbar. */
 :hover::-webkit-scrollbar-thumb {
-  background: var(--border-strong);
-  background-clip: content-box;
+  background-color: var(--border-strong);
+  border-width: 2px;
+}
+
+/* Hovering the thumb itself is the strongest state. */
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--text-faint);
+  border-width: 2px;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/*
+ * Firefox fallback — and it must stay a fallback.
+ *
+ * Guarded on `not selector(::-webkit-scrollbar)` rather than
+ * `(scrollbar-width: thin)`: Chrome 121+ supports `scrollbar-width` as well,
+ * and where both are declared it wins over the ::-webkit-scrollbar sizing
+ * above — so the feature query meant for Firefox was quietly flattening the
+ * hover-to-thicken behaviour in Chrome. Firefox has no thumb-level selector,
+ * so it gets a colour shift on hover and no thickness change.
+ */
+@supports not selector(::-webkit-scrollbar) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+
+  *:hover {
+    scrollbar-color: var(--border-strong) transparent;
+  }
 }
 }

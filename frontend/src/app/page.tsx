@@ -1,17 +1,24 @@
-import React from 'react';
-import { listMeetings, getTranscript, getAnalytics } from '@/lib/data';
-import type { Meeting } from '@/lib/types';
-import AppShell from '@/components/AppShell';
+import { listMeetings, getAskThreads } from '@/lib/data';
+import { Library } from '@/components/library/Library';
+
+/**
+ * The call library — the app's home.
+ *
+ * Dynamic rather than prerendered for two reasons: the meeting list is
+ * database-backed and changes whenever the bot files a recording, and the date
+ * headings ("Yesterday", "Last Week") are relative to the clock read below. A
+ * build-time render would freeze both.
+ */
+export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const meetings = (await listMeetings()) as Meeting[];
-  const first = meetings[0] ?? null;
+  const [meetings, threads] = await Promise.all([listMeetings(), getAskThreads()]);
 
-  const transcript = first ? await getTranscript(first.id) : null;
-  const analytics = first ? await getAnalytics(first.id) : null;
-
-  // Render the client AppShell, passing server-fetched meetings as initial
-  // data. This keeps the initial paint server-rendered while the client
-  // manages selection and interactivity.
-  return <AppShell meetings={meetings} />;
+  return (
+    <Library
+      meetings={meetings}
+      threads={threads}
+      nowIso={new Date().toISOString()}
+    />
+  );
 }

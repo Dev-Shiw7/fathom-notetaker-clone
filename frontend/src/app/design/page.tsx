@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const metadata = { title: 'Design preview — Cadence' };
+export const metadata = { title: 'Design preview — Recap' };
 
 export default function DesignPage() {
   return (
@@ -9,7 +9,7 @@ export default function DesignPage() {
     <div className="h-full w-full">
       <iframe
         src="/design-index.html"
-        title="Cadence design preview"
+        title="Recap design preview"
         className="h-full w-full border-0"
       />
     </div>

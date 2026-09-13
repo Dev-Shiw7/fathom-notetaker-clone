@@ -210,18 +210,27 @@ export async function createHighlight(input: {
 }
 
 export async function getUpcoming(): Promise<UpcomingMeeting[]> {
-  const items = hasMongo
-    ? (await (await db()).collection(COLLECTIONS.upcoming).find({}).toArray()).map(
+  const items = await readOrSeed(
+    async () =>
+      (await (await db()).collection(COLLECTIONS.upcoming).find({}).toArray()).map(
         (d) => clean<UpcomingMeeting>(d),
-      )
-    : SEED_UPCOMING;
+      ),
+    () => SEED_UPCOMING,
+  );
   return [...items].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
 }
 
 export async function getAskThreads(): Promise<AskThread[]> {
-  if (!hasMongo) return SEED_ASK_THREADS;
-  const docs = await (await db()).collection(COLLECTIONS.askThreads).find({}).toArray();
-  return docs.map((d) => clean<AskThread>(d));
+  return readOrSeed(
+    async () => {
+      const docs = await (await db())
+        .collection(COLLECTIONS.askThreads)
+        .find({})
+        .toArray();
+      return docs.map((d) => clean<AskThread>(d));
+    },
+    () => SEED_ASK_THREADS,
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -8,8 +8,7 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "seed": "tsx --env-file-if-exists=.env.local scripts/seed.ts",
-    "generate": "tsx scripts/generate.ts",
-    "tts": "tsx scripts/tts.ts"
+    "attach-audio": "tsx --env-file-if-exists=.env.local scripts/attach-audio.ts"
   },
   "dependencies": {
     "mongodb": "^6.12.0",

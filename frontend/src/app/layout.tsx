@@ -1,11 +1,10 @@
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import Link from 'next/link';
 import './globals.css';
-import { NavLinks } from '@/components/shell/NavLinks';
-import { CommandHint } from '@/components/shell/CommandHint';
-import { ThemeToggle } from '@/components/shell/ThemeToggle';
+import { TopBar } from '@/components/shell/TopBar';
+import { GlobalSearch } from '@/components/shell/GlobalSearch';
 import { ToastProvider } from '@/components/ui/Toast';
+import { listMeetings } from '@/lib/data';
 
 /**
  * globals.css asked for Inter but nothing ever loaded it, so every screen fell
@@ -20,27 +19,34 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'Cadence — AI meeting notetaker',
+  title: 'Recap — AI notetaker for every call',
   description:
     'Recordings, transcripts, AI summaries and speaker analytics for every meeting.',
 };
 
 /**
- * Applies the saved theme before first paint. Without this, a dark-theme user
- * gets a white flash on every navigation while React boots.
+ * Applies a chosen theme before first paint.
+ *
+ * Only "light" needs stamping: the stylesheet's bare :root is already the dark
+ * palette, so a dark-by-default visitor has nothing to correct. Without this a
+ * light-theme user gets a dark flash on every navigation while React boots.
  */
 const NO_FLASH_THEME = `
 try {
-  var t = localStorage.getItem('cadence-theme');
+  var t = localStorage.getItem('recap-theme');
   if (t === 'light' || t === 'dark') {
     document.documentElement.setAttribute('data-theme', t);
   }
 } catch (e) {}
 `;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  // The app bar's counter. Read here so it is the same number on every route
+  // rather than something each page has to remember to pass up.
+  const callCount = (await listMeetings()).length;
+
   return (
     <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
@@ -48,47 +54,25 @@ export default function RootLayout({
       </head>
       {/*
         h-dvh (not min-h-screen) because <body> is overflow:hidden and each
-        pane scrolls itself. The page used to be a 56px header stacked on a
-        100vh shell inside a clipped body, so the last 56px of every screen —
-        including the bottom of the meeting list — was simply unreachable.
+        pane scrolls itself. The page used to be a header stacked on a 100vh
+        shell inside a clipped body, so the last 56px of every screen —
+        including the bottom of the call list — was simply unreachable.
       */}
       <body className="h-dvh overflow-hidden">
         <ToastProvider>
           <div className="flex h-dvh flex-col">
-            <header className="z-40 shrink-0 border-b border-[var(--border)] bg-[var(--bg-panel)]">
-              <div className="flex h-14 w-full items-center gap-4 px-4 sm:px-5">
-                <Link
-                  href="/"
-                  aria-label="Cadence home"
-                  className="group flex shrink-0 items-center gap-2 rounded-lg"
-                >
-                  <span
-                    aria-hidden
-                    className="grid h-7 w-7 place-items-center rounded-lg bg-[var(--accent)] text-sm font-bold text-[var(--accent-contrast)] shadow-[var(--shadow-sm)] transition-transform duration-200 group-hover:scale-110 group-active:scale-95"
-                  >
-                    C
-                  </span>
-                  <span className="text-[15px] font-bold tracking-tight transition-colors group-hover:text-[var(--accent)]">
-                    Cadence
-                  </span>
-                </Link>
-
-                <NavLinks />
-
-                <div className="ml-auto flex shrink-0 items-center gap-2">
-                  <CommandHint />
-                  <ThemeToggle />
-                </div>
-              </div>
-            </header>
+            <TopBar callCount={callCount} />
 
             {/* min-h-0 lets this flex child actually shrink, which is what
                 allows the panes inside it to own their own scrollbars.
-                overflow-y-auto is for the ordinary document pages (Settings);
-                the meeting workspace is exactly h-full and scrolls internally,
-                so it never produces a scrollbar here. */}
+                overflow-y-auto is for the ordinary document pages (Settings,
+                a shared clip); the library and the call view are exactly
+                h-full and scroll internally, so they never produce a
+                scrollbar here. */}
             <main className="min-h-0 flex-1 overflow-y-auto">{children}</main>
           </div>
+
+          <GlobalSearch />
         </ToastProvider>
       </body>
     </html>

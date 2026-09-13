@@ -170,6 +170,48 @@ export function formatMeetingDate(iso: string): string {
   return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
+const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+/** `Fri` — the short weekday, UTC, for the same reason as formatMeetingDate. */
+export function formatWeekday(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return '';
+  return WEEKDAYS[date.getUTCDay()]!;
+}
+
+const MS_PER_DAY = 86_400_000;
+
+/**
+ * `Today` / `Yesterday` / `Last Week` / `Sep 2026` — the heading a call is
+ * filed under in the library.
+ *
+ * Takes "now" as an argument rather than calling `Date.now()`. That is the
+ * whole point: a relative label derived from the clock is computed at two
+ * different instants on the server and in the browser, and the two disagree
+ * across a midnight boundary — the exact hydration mismatch `formatMeetingDate`
+ * exists to prevent. The page reads the clock once and both renders agree.
+ *
+ * Day boundaries are UTC, matching every other date helper here.
+ */
+export function relativeDayGroup(iso: string, nowIso: string): string {
+  const then = Date.parse(iso);
+  const now = Date.parse(nowIso);
+  if (Number.isNaN(then)) return 'Undated';
+  if (Number.isNaN(now)) return formatMeetingDate(iso);
+
+  const days = Math.floor(now / MS_PER_DAY) - Math.floor(then / MS_PER_DAY);
+
+  // Negative means the call is dated in the future — a calendar import running
+  // ahead of the clock. "Today" is a better answer than a negative bucket.
+  if (days <= 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  if (days <= 6) return 'This Week';
+  if (days <= 13) return 'Last Week';
+
+  const date = new Date(then);
+  return `${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
+}
+
 /** `58 min` / `1h 02m` — for durations rather than positions. */
 export function formatDuration(ms: number): string {
   const totalMinutes = Math.round(ms / 60_000);
