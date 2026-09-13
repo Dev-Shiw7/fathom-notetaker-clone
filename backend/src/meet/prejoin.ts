@@ -10,11 +10,13 @@
  */
 import type { Page } from 'playwright-core';
 import {
+  INCALL_LEAVE_BUTTON,
   PREJOIN_CAMERA_TOGGLE,
   PREJOIN_DISMISS_OVERLAY,
   PREJOIN_JOIN_BUTTON,
   PREJOIN_MIC_TOGGLE,
   PREJOIN_NAME_INPUT,
+  isPresent,
   resolveFirst,
   type SelectorChain,
 } from './selectors.js';
@@ -152,14 +154,36 @@ export async function setDisplayName(page: Page, name: string): Promise<boolean>
   }
 }
 
-/** Clicks "Ask to join" / "Join now". */
+/**
+ * Clicks "Ask to join" / "Join now".
+ *
+ * Some meetings admit a caller with no lobby step at all — quick-access
+ * meetings, or an org policy that skips the knock entirely — so the button
+ * this is looking for may simply never render. That used to read as
+ * `COULD_NOT_JOIN`: `resolveFirst` legitimately found nothing (there was
+ * nothing to find), the caller gave up, and closing the browser to report
+ * failure dropped the bot straight out of the call it was already sitting in.
+ * A live run caught this in the act — the failure screenshot showed the
+ * bot's own "Leave call" tile and a "You have joined the call" status line,
+ * not a stuck pre-join screen. So this checks for that outcome first, and
+ * again after the search comes up empty, before it concludes anything is
+ * actually missing.
+ */
 export async function requestJoin(page: Page): Promise<boolean> {
+  if (await isPresent(page, INCALL_LEAVE_BUTTON)) return true;
+
   const found = await resolveFirst(page, PREJOIN_JOIN_BUTTON, 8_000);
-  if (!found) return false;
+  if (!found) {
+    // The page may have been admitted straight through while we were polling
+    // for a button that was never going to appear.
+    return isPresent(page, INCALL_LEAVE_BUTTON);
+  }
   try {
     await found.locator.click({ timeout: 5_000 });
     return true;
   } catch {
-    return false;
+    // A click can fail because the element went stale the instant Meet
+    // auto-admitted us out from under it — the same "already in" case.
+    return isPresent(page, INCALL_LEAVE_BUTTON);
   }
 }

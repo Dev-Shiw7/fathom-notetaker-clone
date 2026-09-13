@@ -13,7 +13,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // Convert bot turns to web transcript turns (add audioUrl)
+    // Convert bot turns to web transcript turns (add audioUrl). The bot's own
+    // turns carry a `speakerName` (see backend/src/transcription.ts) that the
+    // domain TranscriptTurn type has no field for, so pull it out into its own
+    // map here rather than losing it — saveBotTranscript uses it to name
+    // participants instead of falling back to "Speaker 1"/"Speaker 2".
     const transcriptTurns: TranscriptTurn[] = turns.map((turn: any) => ({
       id: turn.id,
       speakerId: turn.speakerId,
@@ -22,6 +26,13 @@ export async function POST(request: Request) {
       text: turn.text,
       audioUrl: null,
     }));
+
+    const speakerNames: Record<string, string> = {};
+    for (const turn of turns) {
+      if (turn.speakerName && !speakerNames[turn.speakerId]) {
+        speakerNames[turn.speakerId] = turn.speakerName;
+      }
+    }
 
     // Build transcript object
     const transcript = {
@@ -37,6 +48,7 @@ export async function POST(request: Request) {
       botName: botName || 'Notetaker',
       transcript,
       summary,
+      speakerNames,
     });
 
     if (!saved) {

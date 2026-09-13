@@ -26,6 +26,7 @@ import type {
   Highlight,
   Meeting,
   MeetingAnalytics,
+  Participant,
   SearchHit,
   Share,
   Summary,
@@ -43,6 +44,7 @@ const memoryHighlights: Highlight[] = [];
 const memoryShares: Share[] = [];
 const memoryMeetings: Meeting[] = [];
 const memoryTranscripts: Transcript[] = [];
+const memorySummaries: Summary[] = [];
 
 /** Strips Mongo's `_id` so documents match the domain types exactly. */
 function clean<T>(doc: unknown): T {
@@ -141,7 +143,9 @@ export async function getSummaries(meetingId: string): Promise<Summary[]> {
         .toArray();
       return docs.map((d) => clean<Summary>(d));
     },
-    () => SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.summaries ?? [],
+    () =>
+      SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.summaries ??
+      memorySummaries.filter((s) => s.meetingId === meetingId),
   );
 }
 
@@ -356,60 +360,138 @@ function buildSnippet(text: string, index: number, length: number): string {
     text.slice(index + length, to);
   return `${from > 0 ? '…' : ''}${body}${to < text.length ? '…' : ''}`;
 }
+const BOT_PARTICIPANT_COLORS = [
+  '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#FECE5C', '#A78BFA', '#F472B6',
+];
+
+function initialsFor(name: string, fallbackIndex: number): string {
+  const initials = name
+    .split(/\s+/)
+    .map((w) => w[0])
+    .filter(Boolean)
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+  return initials || `S${fallbackIndex + 1}`;
+}
+
 /**
- * Save a meeting and its transcript from the bot.
- * Used when the bot completes a recording and sends it to the API.
+ * Save a meeting, transcript, summary and analytics from the bot in one shot.
+ *
+ * The bot already does all the work — it generates a stub transcript with
+ * per-turn speaker names (see `backend/src/recording.ts`) and a stub summary
+ * (`backend/src/transcription.ts`) before it ever calls this. This used to
+ * discard almost all of it: the summary parameter went unused, real speaker
+ * names were overwritten with "Speaker 1"/"Speaker 2", `templateIds` was left
+ * empty so the summary panel had nothing to switch between, and analytics was
+ * never computed for a bot-produced meeting at all. The net effect was that a
+ * call the bot actually recorded opened to an empty Summary tab and a dead
+ * talk-time ribbon — exactly the "what comes out the other side" moment the
+ * product is supposed to prove out. This writes everything the bot handed us.
  */
 export async function saveBotTranscript(input: {
   meetingCode: string;
   meetingUrl: string;
   botName: string;
   transcript: Transcript;
-  summary?: { text: string; keyPoints?: string[]; actionItems?: Array<{ task: string }> };
+  summary?: {
+    text: string;
+    keyPoints?: string[];
+    actionItems?: Array<{ task: string; owner?: string; dueDate?: string }>;
+  };
+  /** Real per-speaker names, keyed by speakerId — see `backend/src/transcription.ts`. */
+  speakerNames?: Record<string, string>;
 }): Promise<Meeting | null> {
-  // Get unique speakers from transcript
-  const speakerIds = Array.from(new Set(input.transcript.turns.map(t => t.speakerId)));
-  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#FECE5C'];
-  
-  // Create a meeting record
+  const turns = input.transcript.turns;
+  const speakerIds = Array.from(new Set(turns.map((t) => t.speakerId)));
+
+  const participants: Participant[] = speakerIds.map((id, i) => {
+    const name = input.speakerNames?.[id] ?? `Speaker ${i + 1}`;
+    return {
+      id,
+      name,
+      role: null,
+      org: null,
+      isHost: i === 0,
+      isExternal: false,
+      color: BOT_PARTICIPANT_COLORS[i % BOT_PARTICIPANT_COLORS.length]!,
+      initials: initialsFor(name, i),
+    };
+  });
+
+  const durationMs = turns[turns.length - 1]?.endMs ?? 60_000;
+  // Only one template exists for a bot-produced summary today, but the field
+  // is what the summary-template switcher reads, so it must be populated for
+  // the switcher (and `summaries[0]`) to have anything to show.
+  const templateId = 'general';
+
   const meeting: Meeting = {
     id: input.meetingCode,
     title: `Bot Recording: ${input.meetingCode}`,
     startedAt: new Date().toISOString(),
-    durationMs: input.transcript.turns[input.transcript.turns.length - 1]?.endMs ?? 60000,
+    durationMs,
     platform: 'meet',
     status: 'recorded',
-    participants: speakerIds.map((id, i) => {
-      const name = `Speaker ${i + 1}`;
-      return {
-        id,
-        name,
-        role: null,
-        org: null,
-        isHost: i === 0,
-        isExternal: false,
-        color: colors[i % colors.length],
-        initials: name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2),
-      };
-    }),
+    participants,
     tags: ['bot-recorded', 'stubbed'],
     audioUrl: null,
-    templateIds: [],
-    blurb: `Recorded by ${input.botName} on ${formatMeetingDate(new Date().toISOString())}`,
+    templateIds: input.summary ? [templateId] : [],
+    blurb:
+      input.summary?.text.split('\n').find((line) => line.trim().length > 0)?.trim() ??
+      `Recorded by ${input.botName} on ${formatMeetingDate(new Date().toISOString())}`,
   };
 
+  const idByLowerName = new Map(participants.map((p) => [p.name.toLowerCase(), p.id]));
+
+  // Every claim in a summary is supposed to cite where in the recording it
+  // came from (see the `Citation` type in lib/types.ts). The stub summariser
+  // does not track which turn a key point or action item was pulled from, so
+  // the honest citation here is "somewhere in this call" — the full duration
+  // — rather than inventing a false timestamp for a point we can't actually
+  // locate.
+  const wholeCallCitation = { startMs: 0, endMs: durationMs };
+
+  const summaries: Summary[] = input.summary
+    ? [
+        {
+          meetingId: meeting.id,
+          templateId,
+          tldr: input.summary.text,
+          keyPoints: (input.summary.keyPoints ?? []).map((text) => ({
+            text,
+            citation: wholeCallCitation,
+          })),
+          actionItems: (input.summary.actionItems ?? []).map((item, i) => ({
+            id: `${meeting.id}-action-${i}`,
+            text: item.task,
+            ownerId: item.owner ? idByLowerName.get(item.owner.toLowerCase()) ?? null : null,
+            dueDate: item.dueDate ?? null,
+            citation: wholeCallCitation,
+          })),
+          topics: [],
+        },
+      ]
+    : [];
+
+  const analytics = computeAnalytics(meeting.id, durationMs, participants, turns);
+
   if (!hasMongo) {
-    // Store in memory
     memoryMeetings.push(meeting);
     memoryTranscripts.push(input.transcript);
+    memorySummaries.push(...summaries);
     return meeting;
   }
 
-  // In production, save to MongoDB
   try {
     const database = await db();
-    await database.collection(COLLECTIONS.meetings).insertOne(meeting as any);
-    await database.collection(COLLECTIONS.transcripts).insertOne(input.transcript as any);
+    await database.collection(COLLECTIONS.meetings).insertOne({ ...meeting });
+    await database.collection(COLLECTIONS.transcripts).insertOne({ ...input.transcript });
+    if (summaries.length > 0) {
+      await database
+        .collection(COLLECTIONS.summaries)
+        .insertMany(summaries.map((s) => ({ ...s })));
+    }
+    await database.collection(COLLECTIONS.analytics).insertOne({ ...analytics });
     return meeting;
   } catch (err) {
     console.error('Error saving bot transcript:', err);
