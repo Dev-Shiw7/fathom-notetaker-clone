@@ -162,39 +162,48 @@ export async function setDisplayName(page: Page, name: string): Promise<boolean>
 /**
  * Clicks "Ask to join" / "Join now".
  *
- * A plain, ordinary Playwright click — deliberately. An earlier version of
- * this function pressed Enter on the page and fell back to `force: true`
- * clicks to work around a button that seemed unclickable. Both are synthetic
- * interaction patterns with no real mouse movement behind them, and the
- * timing lines up exactly with when joins stopped reaching a host at all:
- * runs before that change show ordinary clicks landing fine (`join.requested`
- * firing, followed by a genuine `NEVER_ADMITTED`/`DENIED` from Meet); runs
- * after it show the session's own console throwing reCAPTCHA challenges and
- * an instant, zero-wait "you can't join this video call" — i.e. Google's own
- * abuse detection engaging against the browser, not a selector failing to
- * find anything. A `.click()` with no `force` performs a real hover + move +
- * down + up sequence, which is the least bot-like thing this can do, so that
- * is what stays.
+ * The 3s timeout is load-bearing and must not be raised casually.
+ * `resolveFirst` applies its timeout to *each* candidate in turn, so the real
+ * cost is `candidates × timeout`, not `timeout`. Raising this to 8s while the
+ * chain had grown to eight candidates pushed the worst case from 12s to 64s,
+ * and a live run showed exactly what that buys: Meet's "You can't join this
+ * video call" screen runs a "Returning to home screen" countdown, and a
+ * search that long is still hunting for a button when the countdown fires and
+ * tears the page down. The failure then surfaces as "Target page, context or
+ * browser has been closed" from whatever ran next, which looks nothing like
+ * the timeout that actually caused it.
  *
- * Separately: some meetings admit a caller with no lobby step at all — quick
- * access, or an org policy that skips the knock entirely — so the button may
- * legitimately never render. That is not a failure; it means the bot is
- * already in. Checked first, and again if the button search comes up empty,
- * before concluding anything is actually missing.
+ * The Enter press is a genuine last-resort fallback, reached only after the
+ * click path has already failed. That ordering matters: a later revision
+ * pressed Enter *first*, before any click, which is a synthetic interaction
+ * with no pointer movement behind it. Keep it here, at the end.
+ *
+ * Some meetings admit a caller with no lobby step at all — quick access, or an
+ * org policy that skips the knock — so the button may legitimately never
+ * render. That is not a failure; it means the bot is already in, which is why
+ * the leave button is checked first and again at the end.
  */
 export async function requestJoin(page: Page): Promise<boolean> {
   if (await isPresent(page, INCALL_LEAVE_BUTTON)) return true;
 
-  const found = await resolveFirst(page, PREJOIN_JOIN_BUTTON, 8_000);
-  if (!found) {
-    // The page may have been admitted straight through while we were polling
-    // for a button that was never going to appear.
-    return isPresent(page, INCALL_LEAVE_BUTTON);
+  const found = await resolveFirst(page, PREJOIN_JOIN_BUTTON, 3_000);
+  if (found) {
+    try {
+      await found.locator.click({ timeout: 4_000 });
+      // Let Meet act on the click before the caller starts confirming it.
+      await page.waitForTimeout(500);
+      return true;
+    } catch {
+      if (await isPresent(page, INCALL_LEAVE_BUTTON)) return true;
+    }
   }
+
+  // Fallback: try pressing Enter on the pre-join form.
   try {
-    await found.locator.click({ timeout: 5_000 });
-    return true;
-  } catch {
-    return isPresent(page, INCALL_LEAVE_BUTTON);
-  }
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
+    if (await isPresent(page, INCALL_LEAVE_BUTTON)) return true;
+  } catch {}
+
+  return isPresent(page, INCALL_LEAVE_BUTTON);
 }

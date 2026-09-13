@@ -80,13 +80,17 @@ export const PREJOIN_JOIN_BUTTON = chain(
   'prejoin.joinButton',
   'The "Ask to join" / "Join now" button',
   [
+    // Keep this chain SHORT. `resolveFirst` spends the full timeout on every
+    // candidate before moving to the next, so each extra entry is another
+    // whole timeout added to the worst case. Four `:has-text()` duplicates of
+    // the role/text candidates below were once added here, doubling the chain
+    // to eight and, with a raised timeout, taking the join-button search from
+    // 12s to 64s — long enough for Meet's "Returning to home screen"
+    // countdown to tear the page down mid-search. They matched nothing the
+    // remaining candidates did not already match.
     role('button', /ask to join/i),
     role('button', /join now/i),
     role('button', /^join$/i),
-    css('button:has-text("Ask to join")'),
-    css('button:has-text("Join now")'),
-    css('[role="button"]:has-text("Ask to join")'),
-    css('[role="button"]:has-text("Join now")'),
     text(/ask to join|join now/i),
   ],
 );
@@ -180,6 +184,13 @@ export const LANDING_DENIED_ENTRY = chain(
     text(/denied your request to join/i),
     text(/no one responded to your request/i),
     text(/you can't join this (video )?call/i),
+    // The reassurance line Meet prints under that heading ("Your meeting is
+    // safe — No one can join a meeting unless invited or admitted by the
+    // host"). Removing it cost the bot its only fast, positive read on the
+    // blocking screen: instead of failing immediately with DENIED, it went on
+    // hunting for a join button that was never going to appear until the page
+    // died under it, turning a clean diagnosis into a confusing timeout.
+    text(/your meeting is safe/i),
   ],
   true,
 );
