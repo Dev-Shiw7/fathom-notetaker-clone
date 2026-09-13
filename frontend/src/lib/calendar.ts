@@ -13,8 +13,8 @@ import { fetchCalendar } from './ics';
 import { QueueUnavailableError, enqueueJob } from './jobs';
 import type { CalendarConnection, CalendarEvent } from './types';
 
-/** Queue the bot this long before an event starts. */
-const JOIN_LEAD_MS = 2 * 60_000;
+/** Queue the bot this long before an event starts (10 seconds before start). */
+const JOIN_LEAD_MS = 10_000;
 /** How far ahead to queue. Beyond this, a later sync will catch it. */
 const HORIZON_MS = 7 * 24 * 60 * 60_000;
 

@@ -47,10 +47,10 @@ export async function dismissOverlays(page: Page, maxRounds = 4): Promise<number
   return dismissed;
 }
 
-/** Turns the mic and camera off, then re-reads the DOM to confirm. */
+/** Turns the camera and mic off, then re-reads the DOM to confirm. */
 export async function ensureMediaOff(page: Page): Promise<MediaState> {
-  const microphone = await setToggleMuted(page, PREJOIN_MIC_TOGGLE, 'microphone');
   const camera = await setToggleMuted(page, PREJOIN_CAMERA_TOGGLE, 'camera');
+  const microphone = await setToggleMuted(page, PREJOIN_MIC_TOGGLE, 'microphone');
   return { camera, microphone, verified: camera && microphone };
 }
 
@@ -162,38 +162,39 @@ export async function setDisplayName(page: Page, name: string): Promise<boolean>
 /**
  * Clicks "Ask to join" / "Join now".
  *
- * Some meetings admit a caller with no lobby step at all — quick-access
- * meetings, or an org policy that skips the knock entirely — so the button
- * this is looking for may simply never render. That used to read as
- * `COULD_NOT_JOIN`: `resolveFirst` legitimately found nothing (there was
- * nothing to find), the caller gave up, and closing the browser to report
- * failure dropped the bot straight out of the call it was already sitting in.
- * A live run caught this in the act — the failure screenshot showed the
- * bot's own "Leave call" tile and a "You have joined the call" status line,
- * not a stuck pre-join screen. So this checks for that outcome first, and
- * again after the search comes up empty, before it concludes anything is
- * actually missing.
+ * A plain, ordinary Playwright click — deliberately. An earlier version of
+ * this function pressed Enter on the page and fell back to `force: true`
+ * clicks to work around a button that seemed unclickable. Both are synthetic
+ * interaction patterns with no real mouse movement behind them, and the
+ * timing lines up exactly with when joins stopped reaching a host at all:
+ * runs before that change show ordinary clicks landing fine (`join.requested`
+ * firing, followed by a genuine `NEVER_ADMITTED`/`DENIED` from Meet); runs
+ * after it show the session's own console throwing reCAPTCHA challenges and
+ * an instant, zero-wait "you can't join this video call" — i.e. Google's own
+ * abuse detection engaging against the browser, not a selector failing to
+ * find anything. A `.click()` with no `force` performs a real hover + move +
+ * down + up sequence, which is the least bot-like thing this can do, so that
+ * is what stays.
+ *
+ * Separately: some meetings admit a caller with no lobby step at all — quick
+ * access, or an org policy that skips the knock entirely — so the button may
+ * legitimately never render. That is not a failure; it means the bot is
+ * already in. Checked first, and again if the button search comes up empty,
+ * before concluding anything is actually missing.
  */
 export async function requestJoin(page: Page): Promise<boolean> {
   if (await isPresent(page, INCALL_LEAVE_BUTTON)) return true;
 
-  const found = await resolveFirst(page, PREJOIN_JOIN_BUTTON, 3_000);
-  if (found) {
-    try {
-      await found.locator.click({ timeout: 4_000 });
-      await page.waitForTimeout(500);
-      return true;
-    } catch {
-      if (await isPresent(page, INCALL_LEAVE_BUTTON)) return true;
-    }
+  const found = await resolveFirst(page, PREJOIN_JOIN_BUTTON, 8_000);
+  if (!found) {
+    // The page may have been admitted straight through while we were polling
+    // for a button that was never going to appear.
+    return isPresent(page, INCALL_LEAVE_BUTTON);
   }
-
-  // Fallback: try pressing Enter on the pre-join form
   try {
-    await page.keyboard.press('Enter');
-    await page.waitForTimeout(500);
-    if (await isPresent(page, INCALL_LEAVE_BUTTON)) return true;
-  } catch {}
-
-  return isPresent(page, INCALL_LEAVE_BUTTON);
+    await found.locator.click({ timeout: 5_000 });
+    return true;
+  } catch {
+    return isPresent(page, INCALL_LEAVE_BUTTON);
+  }
 }

@@ -83,6 +83,10 @@ export const PREJOIN_JOIN_BUTTON = chain(
     role('button', /ask to join/i),
     role('button', /join now/i),
     role('button', /^join$/i),
+    css('button:has-text("Ask to join")'),
+    css('button:has-text("Join now")'),
+    css('[role="button"]:has-text("Ask to join")'),
+    css('[role="button"]:has-text("Join now")'),
     text(/ask to join|join now/i),
   ],
 );
@@ -176,7 +180,6 @@ export const LANDING_DENIED_ENTRY = chain(
     text(/denied your request to join/i),
     text(/no one responded to your request/i),
     text(/you can't join this (video )?call/i),
-    text(/your meeting is safe/i),
   ],
   true,
 );

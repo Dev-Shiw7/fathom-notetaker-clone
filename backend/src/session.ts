@@ -218,8 +218,16 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
       }
     }
 
+    const reason = await monitorCall(page, options, joinedAt, interrupt, log);
+    const actualDurationMs = Math.max(10_000, Date.now() - joinedAt);
+
     // ---- Record transcript ----------------------------------------------
-    const { turns, summary } = await recordStubTranscript(page, options.meetingCode || 'unknown', log);
+    const { turns, summary } = await recordStubTranscript(
+      page,
+      options.meetingCode || 'unknown',
+      log,
+      actualDurationMs,
+    );
     
     // Post transcript to web API for storage
     // Try to post, but don't fail the session if it doesn't work (web app may not be running)
@@ -256,14 +264,19 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
       });
     }
 
-    const reason = await monitorCall(page, options, joinedAt, interrupt, log);
-
     // ---- Deliver summary -------------------------------------------------
     // Posted from inside the call, because chat is unreachable once we leave.
     // A Ctrl-C mid-hold skips straight to leaving: the user asked the bot to
     // get out, and holding a browser open to finish a chat post ignores that.
+    //
+    // The hold is skipped entirely when the leave reason is ALONE: it exists
+    // so stragglers in a still-active meeting get a few minutes to see the
+    // chat summary before the bot posts and leaves. When the bot is alone,
+    // there is nobody left in the call to read it — waiting out the full
+    // delay anyway just adds minutes of sitting in an empty room on top of
+    // however long `aloneTimeoutMs` already took to notice that.
     if (options.summaryChat && !interrupt.requested) {
-      if (options.summaryDelayMs > 0) {
+      if (options.summaryDelayMs > 0 && reason !== 'ALONE') {
         log.emit('summary.delay.started', {
           delayMs: options.summaryDelayMs,
           reason,
@@ -361,12 +374,21 @@ async function monitorCall(
 
     const count = await getParticipantCount(page);
     if (count !== null && count !== previousCount) {
+      const wasAccompanied = previousCount !== null && previousCount > 1;
       log.emit('participants.changed', { count, previous: previousCount });
       previousCount = count;
+
+      // Someone else was in the call and the count just dropped to "only the
+      // bot" — that's the meeting ending, unambiguously. No reason to sit out
+      // the full aloneTimeoutMs for a transition this clear.
+      if (wasAccompanied && count === 1) return 'ALONE';
     }
 
     // `null` means unreadable, not empty — treating it as "alone" would make
-    // the bot walk out of a meeting it is sitting in perfectly happily.
+    // the bot walk out of a meeting it is sitting in perfectly happily. This
+    // is the slower fallback for every other way of ending up alone — e.g.
+    // the bot joining before anyone else has arrived, where there is no
+    // ">1 dropping to 1" transition to catch.
     if (count !== null && count <= 1) {
       aloneSince ??= Date.now();
       if (Date.now() - aloneSince >= options.aloneTimeoutMs) return 'ALONE';
