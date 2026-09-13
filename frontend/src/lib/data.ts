@@ -35,16 +35,19 @@ import type {
   UpcomingMeeting,
 } from './types';
 
-/**
- * Writes made by visitors while running without Mongo. Process-local and lost
- * on restart, which is the honest behaviour — better than silently pretending
- * something persisted.
- */
-const memoryHighlights: Highlight[] = [];
-const memoryShares: Share[] = [];
-const memoryMeetings: Meeting[] = [];
-const memoryTranscripts: Transcript[] = [];
-const memorySummaries: Summary[] = [];
+const globalForData = globalThis as unknown as {
+  memoryHighlights?: Highlight[];
+  memoryShares?: Share[];
+  memoryMeetings?: Meeting[];
+  memoryTranscripts?: Transcript[];
+  memorySummaries?: Summary[];
+};
+
+const memoryHighlights: Highlight[] = (globalForData.memoryHighlights ??= []);
+const memoryShares: Share[] = (globalForData.memoryShares ??= []);
+const memoryMeetings: Meeting[] = (globalForData.memoryMeetings ??= []);
+const memoryTranscripts: Transcript[] = (globalForData.memoryTranscripts ??= []);
+const memorySummaries: Summary[] = (globalForData.memorySummaries ??= []);
 
 /** Strips Mongo's `_id` so documents match the domain types exactly. */
 function clean<T>(doc: unknown): T {
@@ -92,12 +95,18 @@ async function readOrSeed<T>(
 
 export async function listMeetings(): Promise<Meeting[]> {
   const meetings = await readOrSeed(
-    async () =>
-      (await (await db())
-        .collection(COLLECTIONS.meetings)
-        .find({})
-        .sort({ startedAt: -1 })
-        .toArray()).map((d) => clean<Meeting>(d)),
+    async () => {
+      const dbList = (
+        await (await db())
+          .collection(COLLECTIONS.meetings)
+          .find({})
+          .sort({ startedAt: -1 })
+          .toArray()
+      ).map((d) => clean<Meeting>(d));
+      const seenIds = new Set(dbList.map((m) => m.id));
+      const unsavedMemory = memoryMeetings.filter((m) => !seenIds.has(m.id));
+      return [...dbList, ...unsavedMemory];
+    },
     () => [...SEED_MEETINGS.map((m) => m.meeting), ...memoryMeetings],
   );
 
@@ -107,45 +116,52 @@ export async function listMeetings(): Promise<Meeting[]> {
 }
 
 export async function getMeeting(id: string): Promise<Meeting | null> {
+  const memoryFallback = () =>
+    SEED_MEETINGS.find((m) => m.meeting.id === id)?.meeting ??
+    memoryMeetings.find((m) => m.id === id) ??
+    null;
+
   return readOrSeed(
     async () => {
       const doc = await (await db()).collection(COLLECTIONS.meetings).findOne({ id });
-      return doc ? clean<Meeting>(doc) : null;
+      return doc ? clean<Meeting>(doc) : memoryFallback();
     },
-    () =>
-      SEED_MEETINGS.find((m) => m.meeting.id === id)?.meeting ??
-      memoryMeetings.find((m) => m.id === id) ??
-      null,
+    memoryFallback,
   );
 }
 
 export async function getTranscript(meetingId: string): Promise<Transcript | null> {
+  const memoryFallback = () =>
+    SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.transcript ??
+    memoryTranscripts.find((t) => t.meetingId === meetingId) ??
+    null;
+
   return readOrSeed(
     async () => {
       const doc = await (await db())
         .collection(COLLECTIONS.transcripts)
         .findOne({ meetingId });
-      return doc ? clean<Transcript>(doc) : null;
+      return doc ? clean<Transcript>(doc) : memoryFallback();
     },
-    () =>
-      SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.transcript ??
-      memoryTranscripts.find((t) => t.meetingId === meetingId) ??
-      null,
+    memoryFallback,
   );
 }
 
 export async function getSummaries(meetingId: string): Promise<Summary[]> {
+  const memoryFallback = () =>
+    SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.summaries ??
+    memorySummaries.filter((s) => s.meetingId === meetingId);
+
   return readOrSeed(
     async () => {
       const docs = await (await db())
         .collection(COLLECTIONS.summaries)
         .find({ meetingId })
         .toArray();
-      return docs.map((d) => clean<Summary>(d));
+      const cleaned = docs.map((d) => clean<Summary>(d));
+      return cleaned.length > 0 ? cleaned : memoryFallback();
     },
-    () =>
-      SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.summaries ??
-      memorySummaries.filter((s) => s.meetingId === meetingId),
+    memoryFallback,
   );
 }
 
@@ -475,10 +491,14 @@ export async function saveBotTranscript(input: {
 
   const analytics = computeAnalytics(meeting.id, durationMs, participants, turns);
 
+  // Always store in memory for instant local availability
+  memoryMeetings.unshift(meeting);
+  memoryTranscripts.unshift(input.transcript);
+  if (summaries.length > 0) {
+    memorySummaries.unshift(...summaries);
+  }
+
   if (!hasMongo) {
-    memoryMeetings.push(meeting);
-    memoryTranscripts.push(input.transcript);
-    memorySummaries.push(...summaries);
     return meeting;
   }
 
@@ -494,7 +514,7 @@ export async function saveBotTranscript(input: {
     await database.collection(COLLECTIONS.analytics).insertOne({ ...analytics });
     return meeting;
   } catch (err) {
-    console.error('Error saving bot transcript:', err);
-    return null;
+    console.error('Error saving bot transcript to mongo (persisted in memory):', err);
+    return meeting;
   }
 }

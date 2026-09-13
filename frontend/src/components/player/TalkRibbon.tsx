@@ -147,7 +147,7 @@ export function TalkRibbon({
           if (e.key === 'Home') onSeek(0);
           if (e.key === 'End') onSeek(durationMs);
         }}
-        className="relative h-14 w-full cursor-crosshair overflow-hidden rounded-[var(--radius)] border border-[var(--border)] bg-[var(--bg-sunken)] transition-colors hover:border-[var(--border-strong)]"
+        className="relative h-6 w-full cursor-crosshair overflow-hidden rounded-md border border-[var(--border)] bg-[var(--bg-sunken)] transition-colors hover:border-[var(--border-strong)]"
       >
         {/* Speech blocks, one per turn, coloured by speaker. */}
         {turns.map((turn) => {

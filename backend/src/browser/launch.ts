@@ -74,10 +74,14 @@ export async function launchBrowser(options: {
       channel: 'chrome',
       headless: options.headless,
       args: CHROME_ARGS,
+      ignoreDefaultArgs: ['--enable-automation'],
       ...CONTEXT_OPTIONS,
       permissions: [...CONTEXT_OPTIONS.permissions],
     });
     const page = context.pages()[0] ?? (await context.newPage());
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+    });
     return {
       context,
       page,
@@ -94,6 +98,9 @@ export async function launchBrowser(options: {
     permissions: [...CONTEXT_OPTIONS.permissions],
   });
   const page = await context.newPage();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+  });
 
   return {
     context,
@@ -117,11 +124,16 @@ async function launchWithFallback(
       channel: 'chrome',
       headless,
       args: CHROME_ARGS,
+      ignoreDefaultArgs: ['--enable-automation'],
     });
     return { browser, channel: 'chrome' };
   } catch (chromeErr) {
     try {
-      const browser = await chromium.launch({ headless, args: CHROME_ARGS });
+      const browser = await chromium.launch({
+        headless,
+        args: CHROME_ARGS,
+        ignoreDefaultArgs: ['--enable-automation'],
+      });
       return { browser, channel: 'chromium-bundled' };
     } catch {
       throw new Error(

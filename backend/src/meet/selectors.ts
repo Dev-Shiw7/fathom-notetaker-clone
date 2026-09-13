@@ -175,7 +175,8 @@ export const LANDING_DENIED_ENTRY = chain(
   [
     text(/denied your request to join/i),
     text(/no one responded to your request/i),
-    text(/you can't join this call/i),
+    text(/you can't join this (video )?call/i),
+    text(/your meeting is safe/i),
   ],
   true,
 );

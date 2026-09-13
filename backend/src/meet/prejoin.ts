@@ -147,7 +147,12 @@ export async function setDisplayName(page: Page, name: string): Promise<boolean>
   const found = await resolveFirst(page, PREJOIN_NAME_INPUT, 3_000);
   if (!found) return false;
   try {
-    await found.locator.fill(name, { timeout: 3_000 });
+    await found.locator.click({ timeout: 2_000 });
+    await found.locator.fill('');
+    await found.locator.pressSequentially(name, { delay: 30 });
+    await page.waitForTimeout(300);
+    await found.locator.dispatchEvent('input').catch(() => {});
+    await found.locator.dispatchEvent('change').catch(() => {});
     return true;
   } catch {
     return false;
@@ -172,18 +177,23 @@ export async function setDisplayName(page: Page, name: string): Promise<boolean>
 export async function requestJoin(page: Page): Promise<boolean> {
   if (await isPresent(page, INCALL_LEAVE_BUTTON)) return true;
 
-  const found = await resolveFirst(page, PREJOIN_JOIN_BUTTON, 8_000);
-  if (!found) {
-    // The page may have been admitted straight through while we were polling
-    // for a button that was never going to appear.
-    return isPresent(page, INCALL_LEAVE_BUTTON);
+  const found = await resolveFirst(page, PREJOIN_JOIN_BUTTON, 3_000);
+  if (found) {
+    try {
+      await found.locator.click({ timeout: 4_000 });
+      await page.waitForTimeout(500);
+      return true;
+    } catch {
+      if (await isPresent(page, INCALL_LEAVE_BUTTON)) return true;
+    }
   }
+
+  // Fallback: try pressing Enter on the pre-join form
   try {
-    await found.locator.click({ timeout: 5_000 });
-    return true;
-  } catch {
-    // A click can fail because the element went stale the instant Meet
-    // auto-admitted us out from under it — the same "already in" case.
-    return isPresent(page, INCALL_LEAVE_BUTTON);
-  }
+    await page.keyboard.press('Enter');
+    await page.waitForTimeout(500);
+    if (await isPresent(page, INCALL_LEAVE_BUTTON)) return true;
+  } catch {}
+
+  return isPresent(page, INCALL_LEAVE_BUTTON);
 }

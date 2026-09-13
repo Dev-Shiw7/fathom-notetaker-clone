@@ -49,12 +49,12 @@ export async function detectExit(page: Page): Promise<ExitSignal> {
     if (await isPresent(page, INCALL_REMOVED_BANNER)) return 'REMOVED';
     if (await isPresent(page, INCALL_ENDED_SCREEN)) return 'MEETING_ENDED';
 
-    // Losing the leave button while still on a meeting URL means the call ended
-    // without a recognisable banner.
-    const stillInCall = await isPresent(page, INCALL_LEAVE_BUTTON);
-    if (!stillInCall) {
-      const url = page.url();
-      if (!/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}/i.test(url)) {
+    // Losing the leave button means the call has ended or the page torn down.
+    const inCall = await isPresent(page, INCALL_LEAVE_BUTTON);
+    if (!inCall) {
+      // Re-verify with a short timeout to prevent false positives during fast DOM updates
+      const recheck = await resolveFirst(page, INCALL_LEAVE_BUTTON, 1_000);
+      if (!recheck) {
         return 'MEETING_ENDED';
       }
     }

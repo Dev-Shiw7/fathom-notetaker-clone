@@ -21,6 +21,7 @@ import {
 import { confirmJoinRequested, waitForAdmission } from './meet/admission.js';
 import { detectExit, getParticipantCount, leaveCall } from './meet/incall.js';
 import { announce, postSummary } from './meet/chat.js';
+import { INCALL_LEAVE_BUTTON, isPresent } from './meet/selectors.js';
 import { recordStubTranscript } from './recording.js';
 import { formatSummaryForChat } from './summary-delivery.js';
 import {
@@ -164,35 +165,39 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
       screenshotPath: confirmShot,
     });
 
-    if (confirmation === 'NOT_REGISTERED' || confirmation === 'UNCONFIRMED') {
-      await artifacts.domSnapshot(page, `join-${confirmation}`);
-      log.emit('warn', {
-        message: 'Join click did not visibly register with Meet',
-        detail:
-          confirmation === 'NOT_REGISTERED'
-            ? 'The join button is still on screen — the host will not have seen a prompt'
-            : 'Page moved somewhere unrecognised after the join click',
-      });
-    }
+    if (confirmation === 'IN_CALL' || (await isPresent(page, INCALL_LEAVE_BUTTON))) {
+      // Already admitted straight through, proceed directly to in-call
+    } else {
+      if (confirmation === 'NOT_REGISTERED' || confirmation === 'UNCONFIRMED') {
+        await artifacts.domSnapshot(page, `join-${confirmation}`);
+        log.emit('warn', {
+          message: 'Join click did not visibly register with Meet',
+          detail:
+            confirmation === 'NOT_REGISTERED'
+              ? 'The join button is still on screen — the host will not have seen a prompt'
+              : 'Page moved somewhere unrecognised after the join click',
+        });
+      }
 
-    // ---- Waiting room ---------------------------------------------------
-    setState('WAITING_ROOM');
-    const admission = await waitForAdmission(
-      page,
-      options.admissionTimeoutMs,
-      options.meetingCode,
-    );
+      // ---- Waiting room ---------------------------------------------------
+      setState('WAITING_ROOM');
+      const admission = await waitForAdmission(
+        page,
+        options.admissionTimeoutMs,
+        options.meetingCode,
+      );
 
-    if (admission.status === 'DENIED') {
-      log.emit('admission.denied', { waitedMs: admission.waitedMs });
-      return await finish('DENIED', ExitCode.ADMISSION_DENIED);
+      if (admission.status === 'DENIED') {
+        log.emit('admission.denied', { waitedMs: admission.waitedMs });
+        return await finish('DENIED', ExitCode.ADMISSION_DENIED);
+      }
+      if (admission.status === 'TIMEOUT') {
+        log.emit('admission.timeout', { waitedMs: admission.waitedMs });
+        await artifacts.screenshot(page, 'admission-timeout');
+        return await finish('NEVER_ADMITTED', ExitCode.ADMISSION_TIMEOUT);
+      }
+      log.emit('admission.granted', { waitedMs: admission.waitedMs });
     }
-    if (admission.status === 'TIMEOUT') {
-      log.emit('admission.timeout', { waitedMs: admission.waitedMs });
-      await artifacts.screenshot(page, 'admission-timeout');
-      return await finish('NEVER_ADMITTED', ExitCode.ADMISSION_TIMEOUT);
-    }
-    log.emit('admission.granted', { waitedMs: admission.waitedMs });
 
     // ---- In call ---------------------------------------------------------
     setState('IN_CALL');
@@ -218,8 +223,9 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
     
     // Post transcript to web API for storage
     // Try to post, but don't fail the session if it doesn't work (web app may not be running)
+    const apiUrl = (options.appUrl || 'http://localhost:3000').replace(/\/$/, '');
     try {
-      const apiResponse = await fetch('http://localhost:3000/api/bot/transcript', {
+      const apiResponse = await fetch(`${apiUrl}/api/bot/transcript`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
