@@ -297,80 +297,50 @@ const distill=(function(){
 /* =====================================================================
    ASK
    ===================================================================== */
-const QA=[
-  {q:'What did we decide?',kw:['decid','decision','agree','settle','conclu','outcome'],
-    a:["You settled on showing the decision before the process. Mara flagged the handoff as the weak point ",{t:T(8,24)},", and Jonah proposed the fix and closed it out ",{t:T(14,18)},"."]},
-  {q:'Who owns what next?',kw:['own','next','action','todo','task','who','follow','assign'],
-    a:["Priya brings the revised flow to Thursday's review ",{t:T(52,10)},". Jonah writes up the post-launch metrics ",{t:T(41,5)},", and design owns the empty state until version one ships ",{t:T(24,45)},"."]},
-  {q:'What could go wrong?',kw:['risk','wrong','slip','release','worr','concern','problem','delay'],
-    a:["Theo's concern: if this slips past review, the mid-quarter release won't hold ",{t:T(31,30)},". Mara's fallback is a prototype on Thursday, with scope cut if needed ",{t:T(35,20)},"."]},
-  {q:'Where did we lose people?',kw:['lose','lost','drop','import','leak','churn','people','onboard'],
-    a:["Forty percent never finish the import step ",{t:T(2,5)},". Mara traced it to confusion about what happens next, not to speed ",{t:T(11,40)},"."]}
-];
-const FALLBACK={a:["Nothing in this room matches that yet. Try asking about decisions, owners, or risks."]};
-const pickQA=q=>{const s=q.toLowerCase();let best=null,bs=0;QA.forEach(x=>{let n=x.kw.filter(k=>s.includes(k)).length;if(s===x.q.toLowerCase())n+=9;if(n>bs){bs=n;best=x}});return best||FALLBACK};
+const DEMO_Q=['What is blocking the Meridian deal?','Who owns the Kubernetes migration?','Where are we losing to Datadog?','What are the Q4 engineering priorities?'];
+const escHtml=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const SRC_COLORS=['#e08a5e','#88b0a8','#cdb98c','#cf8f9a','#a89ac9','#6f9bb3'];
+const srcColor=name=>SRC_COLORS[[...name].reduce((a,c)=>a+c.charCodeAt(0),0)%SRC_COLORS.length];
 
+/* Real answers: POST /api/ask with demo:true, which is limited to the two sample calls. */
 const askAPI=(function(){
   const form=$('#askForm'),input=$('#askIn'),ans=$('#ans'),momentEl=$('#moment'),chips=$('#qchips');
-  chips.innerHTML=QA.map((x,i)=>`<button class="qchip" type="button" data-i="${i}">${x.q}</button>`).join('');
-  let curLine=-2,rib,runId=0,interacted=false,replayTimer=0;
-  function showLine(i,fromT){
-    if(i<0)i=0;
-    if(i===curLine){$$('.cite',ans).forEach(c=>c.classList.toggle('on',Math.abs(+c.dataset.t-LINES[i].t)<2));return}
-    curLine=i;
-    const l=LINES[i],sp=SP[l.sp];
-    momentEl.innerHTML=`<div class="tile on" style="--c:${sp.c}"><i class="hd"></i><i class="bd"></i><span class="nm"><i class="dt"></i>${sp.name}</span><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>${l.k?`<span class="chip kind">${GLYPH[l.k]}${KIND[l.k].chip}</span>`:''}<span class="ts">${mmss(l.t)}</span></div>
-      <p class="q" style="--c:${sp.c}">${words(l.x)}</p>
-      <div class="moment-ctl"><button class="mv" type="button" id="mvPrev" aria-label="Previous moment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button><button class="mv" type="button" id="mvNext" aria-label="Next moment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button><button class="link" type="button" id="replay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13l11-6.5z"/></svg>Replay</button><span class="sp"></span><span class="tnum">${mmss(l.t)} · ${sp.name}</span></div>`;
-    $('#replay',momentEl).addEventListener('click',()=>replay(i));
-    const prevM=[...MOMENTS].reverse().find(m=>m.t<l.t-1),nextM=MOMENTS.find(m=>m.t>l.t+1);
-    const bp=$('#mvPrev',momentEl),bn=$('#mvNext',momentEl);
-    bp.disabled=!prevM;bn.disabled=!nextM;
-    bp.addEventListener('click',()=>{interacted=true;focusMoment(prevM.t)});
-    bn.addEventListener('click',()=>{interacted=true;focusMoment(nextM.t)});
-    $$('.cite',ans).forEach(c=>c.classList.toggle('on',Math.abs(+c.dataset.t-l.t)<2));
+  chips.innerHTML=DEMO_Q.map(q=>`<button class="qchip" type="button">${q}</button>`).join('');
+  let sources=[],cur=-1,runId=0;
+  function showSource(i){
+    cur=i;const s=sources[i],c=srcColor(s.speaker),t=s.citation.startMs/1000;
+    momentEl.innerHTML=`<div class="tile on" style="--c:${c}"><i class="hd"></i><i class="bd"></i><span class="nm"><i class="dt"></i>${escHtml(s.speaker)}</span><span class="eq" aria-hidden="true"><i></i><i></i><i></i></span><span class="ts">${mmss(t)}</span></div>
+      <p class="q" style="--c:${c}">${words(escHtml(s.quote))}</p>
+      <div class="moment-ctl"><button class="mv" type="button" id="mvPrev" aria-label="Previous source"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M11 6l-6 6 6 6"/></svg></button><button class="mv" type="button" id="mvNext" aria-label="Next source"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button><a class="link" href="/calls/${encodeURIComponent(s.meetingId)}?t=${Math.round(s.citation.startMs)}">Open in the call <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><span class="sp"></span><span class="tnum">${escHtml(s.meetingTitle)} · ${mmss(t)}</span></div>`;
+    $('#mvPrev',momentEl).disabled=i===0;$('#mvNext',momentEl).disabled=i===sources.length-1;
+    $('#mvPrev',momentEl).addEventListener('click',()=>showSource(i-1));
+    $('#mvNext',momentEl).addEventListener('click',()=>showSource(i+1));
+    $$('.cite',ans).forEach(b=>b.classList.toggle('on',+b.dataset.i===i));
   }
-  function replay(i){
-    const l=LINES[i],q=$('.q',momentEl);q.classList.remove('kar');void q.offsetWidth;q.classList.add('kar');
-    rib.seek(l.t);rib.play(1,l.t+8);
-  }
-  function focusMoment(s){rib.seek(s);showLine(lineAt(s+1))}
-  const sync=t=>{showLine(lineAt(t))};
-  rib=Ribbon($('#askRibbon'),{start:T(14,18),autoplay:false,speed:1,barW:3,gap:2,onTime:sync,onInteract:()=>{interacted=true}});
-  showLine(lineAt(T(14,19)));
-
-  function cite(s){
-    const l=LINES[lineAt(s)]||LINES[0],b=document.createElement('button');
-    b.type='button';b.className='cite';b.dataset.t=s;b.style.setProperty('--c',SP[l.sp].c);b.innerHTML=`<i></i>${mmss(s)}`;
-    b.setAttribute('aria-label',`Jump to ${mmss(s)}, ${SP[l.sp].name}`);
-    b.addEventListener('click',()=>{interacted=true;focusMoment(s)});return b;
+  function cite(i){
+    const s=sources[i],b=document.createElement('button');
+    b.type='button';b.className='cite';b.dataset.i=i;b.style.setProperty('--c',srcColor(s.speaker));b.innerHTML=`<i></i>${mmss(s.citation.startMs/1000)}`;
+    b.setAttribute('aria-label',`Show the source at ${mmss(s.citation.startMs/1000)}, ${s.speaker}`);
+    b.addEventListener('click',()=>showSource(i));return b;
   }
   async function run(q){
-    const id=++runId,qa=pickQA(q);
+    const id=++runId;input.value=q;sources=[];cur=-1;momentEl.innerHTML='';
+    ans.innerHTML='<p class="hint">Reading the sample calls…</p>';
+    let j;
+    try{
+      const r=await fetch('/api/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({question:q,demo:true})});
+      j=await r.json();if(id!==runId)return;
+      if(!r.ok){ans.innerHTML=`<p class="hint">${escHtml(j.error||'Something went wrong.')}</p>`;return}
+    }catch(_){if(id===runId)ans.innerHTML='<p class="hint">Could not reach Recall. Try again in a moment.</p>';return}
+    sources=j.sources||[];
     ans.innerHTML='';const p=document.createElement('p');ans.appendChild(p);
-    let first=null;
-    for(const part of qa.a){
-      if(id!==runId)return;
-      if(typeof part==='string'){for(const w of part.split(' ')){if(!w)continue;p.append(document.createTextNode(w+' '));if(!reduce)await sleep(26);if(id!==runId)return}}
-      else{const c=cite(part.t);p.append(c);if(first==null)first=part.t;if(!reduce)await sleep(120)}
-    }
-    if(first!=null&&id===runId)focusMoment(first);
+    for(const w of j.answer.split(' ')){if(!w)continue;p.append(document.createTextNode(w+' '));if(!reduce)await sleep(22);if(id!==runId)return}
+    sources.forEach((_,i)=>p.append(cite(i)));
+    if(sources.length)showSource(0);
   }
-  async function typeIn(q){
-    const id=++runId;input.value='';
-    for(const ch of q){if(id!==runId)return false;input.value+=ch;if(!reduce)await sleep(34)}
-    await sleep(reduce?0:260);return id===runId;
-  }
-  async function ask(q,type){
-    if(type){const ok=await typeIn(q);if(!ok)return;runId--}
-    else input.value=q;
-    run(q);
-  }
-  form.addEventListener('submit',e=>{e.preventDefault();const q=input.value.trim();if(!q)return;interacted=true;run(q)});
-  input.addEventListener('input',()=>{interacted=true});
-  chips.addEventListener('click',e=>{const b=e.target.closest('.qchip');if(!b)return;interacted=true;ask(QA[+b.dataset.i].q,false)});
-  new IntersectionObserver((es,io)=>{es.forEach(e=>{if(e.isIntersecting){io.disconnect();setTimeout(()=>{if(!interacted)ask(QA[0].q,true)},500)}})},{threshold:.4}).observe($('.console'));
-  return{ask,focusMoment,markInteracted:()=>{interacted=true}};
+  form.addEventListener('submit',e=>{e.preventDefault();const q=input.value.trim();if(q.length>=3)run(q)});
+  chips.addEventListener('click',e=>{const b=e.target.closest('.qchip');if(b)run(b.textContent)});
+  return{ask:run,focus:()=>input.focus()};
 })();
 
 /* =====================================================================
@@ -444,7 +414,7 @@ const askAPI=(function(){
     if(!res.length){hits.innerHTML=`<div class="none">No matches for "${esc(q)}". Try a name, a topic, or a phrase.</div>`;return}
     hits.innerHTML=res.map((r,i)=>`<button class="hit" type="button" data-t="${r.l.t}" style="--c:${SP[r.l.sp].c};animation-delay:${i*70}ms"><span class="tm">${mmss(r.l.t)}</span><span class="tx"><small><i></i>${SP[r.l.sp].name}</small>${hl(r.l.x,ts)}</span><span class="go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></button>`).join('');
   }
-  hits.addEventListener('click',e=>{const b=e.target.closest('.hit');if(!b)return;askAPI.markInteracted();go('#ask');setTimeout(()=>askAPI.focusMoment(+b.dataset.t),reduce?0:650)});
+  hits.addEventListener('click',e=>{const b=e.target.closest('.hit');if(!b)return;go('#ask');setTimeout(()=>askAPI.focus(),reduce?0:650)});
   let manual=false,vis=false;
   input.addEventListener('input',()=>{manual=true;render(input.value)});
   input.addEventListener('focus',()=>{manual=true});
@@ -657,7 +627,7 @@ dockAPI.layout();onScroll();
   const pal=$('#pal'),input=$('#palIn'),list=$('#palList'),btn=$('#palBtn');
   const ARROW='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
   const ITEMS=[
-    ...QA.map(q=>({g:'Ask the room',l:q.q,run:()=>{go('#ask');setTimeout(()=>askAPI.ask(q.q,true),reduce?0:700)}})),
+    ...DEMO_Q.map(q=>({g:'Ask the room',l:q,run:()=>{go('#ask');setTimeout(()=>askAPI.ask(q),reduce?0:700)}})),
     {g:'Jump to',l:'Moments',run:()=>go('#distill')},{g:'Jump to',l:'Ask',run:()=>go('#ask')},
     {g:'Jump to',l:'Features',run:()=>go('#signals')},{g:'Jump to',l:'How it works',run:()=>go('#method')},{g:'Jump to',l:'Start listening',run:()=>go('#start')}
   ];
@@ -665,7 +635,7 @@ dockAPI.layout();onScroll();
   function render(){
     const q=input.value.trim().toLowerCase();
     shown=ITEMS.filter(i=>!q||i.l.toLowerCase().includes(q));
-    if(q&&!shown.length)shown=[{g:'Ask the room',l:input.value.trim(),run:()=>{go('#ask');setTimeout(()=>askAPI.ask(input.value.trim()||'',false),reduce?0:700)}}];
+    if(q&&!shown.length)shown=[{g:'Ask the room',l:input.value.trim(),run:()=>{const q=input.value.trim();go('#ask');setTimeout(()=>askAPI.ask(q),reduce?0:700)}}];
     sel=clamp(sel,0,shown.length-1);
     let g='',html='';
     shown.forEach((it,i)=>{if(it.g!==g){g=it.g;html+=`<div class="pal-g" role="presentation">${g}</div>`}html+=`<button class="pal-i" type="button" role="option" aria-selected="${i===sel}" data-i="${i}"><span>${it.l}</span>${ARROW}</button>`});

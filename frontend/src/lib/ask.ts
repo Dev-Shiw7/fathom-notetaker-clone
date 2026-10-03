@@ -33,6 +33,8 @@ interface Doc {
 
 export interface AskSource {
   meetingId: string;
+  meetingTitle: string;
+  speaker: string;
   citation: Citation;
   quote: string;
 }
@@ -43,8 +45,18 @@ export interface AskAnswer {
 
 const MAX_TURNS = 8;
 
-export async function askQuestion(question: string, meetingId?: string): Promise<AskAnswer> {
-  const meetings = (await listMeetings()).filter((m) => !meetingId || m.id === meetingId);
+/** Which recordings a question may be answered from. Omitted means all of them. */
+export interface AskScope {
+  meetingId?: string;
+  meetingIds?: string[];
+}
+
+export async function askQuestion(question: string, scope: AskScope = {}): Promise<AskAnswer> {
+  const meetings = (await listMeetings()).filter(
+    (m) =>
+      (!scope.meetingId || m.id === scope.meetingId) &&
+      (!scope.meetingIds || scope.meetingIds.includes(m.id)),
+  );
 
   const docs: Doc[] = [];
   const nameFor = new Map<string, string>();
@@ -121,6 +133,8 @@ Rules: answer in one to four sentences; if the excerpts do not answer the questi
     const turn = doc.turns[doc.index]!;
     sources.push({
       meetingId: doc.meeting.id,
+      meetingTitle: doc.meeting.title,
+      speaker: nameFor.get(`${doc.meeting.id}:${turn.speakerId}`) ?? 'Speaker',
       citation: { startMs: turn.startMs, endMs: turn.endMs },
       quote: source.quote?.trim() || turn.text.slice(0, 140),
     });
