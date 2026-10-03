@@ -1,25 +1,28 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Cormorant_Garamond, DM_Sans } from 'next/font/google';
 import './globals.css';
 import { TopBar } from '@/components/shell/TopBar';
 import { GlobalSearch } from '@/components/shell/GlobalSearch';
 import { ToastProvider } from '@/components/ui/Toast';
 import { listMeetings } from '@/lib/data';
 
-/**
- * globals.css asked for Inter but nothing ever loaded it, so every screen fell
- * back to the platform sans — which is why the type never matched the design
- * prototype. next/font self-hosts it and reserves metrics, so there is no
- * layout shift on load either.
- */
-const inter = Inter({
+const sans = DM_Sans({
   subsets: ['latin'],
   display: 'swap',
   variable: '--font-sans',
 });
 
+/** Display serif for headings, matching the landing page. */
+const serif = Cormorant_Garamond({
+  subsets: ['latin'],
+  weight: ['300', '400', '500', '600'],
+  style: ['normal', 'italic'],
+  display: 'swap',
+  variable: '--font-cormorant',
+});
+
 export const metadata: Metadata = {
-  title: 'Recap — AI notetaker for every call',
+  title: 'Recall — Stay in the room. Keep the rest.',
   description:
     'Recordings, transcripts, AI summaries and speaker analytics for every meeting.',
 };
@@ -33,7 +36,7 @@ export const metadata: Metadata = {
  */
 const NO_FLASH_THEME = `
 try {
-  var t = localStorage.getItem('recap-theme');
+  var t = localStorage.getItem('recall-theme');
   if (t === 'light' || t === 'dark') {
     document.documentElement.setAttribute('data-theme', t);
   }
@@ -48,7 +51,7 @@ export default async function RootLayout({
   const callCount = (await listMeetings()).length;
 
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="en" className={`${sans.variable} ${serif.variable}`} suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: NO_FLASH_THEME }} />
       </head>

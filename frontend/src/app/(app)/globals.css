@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /* ===========================================================================
-   Recap design tokens
+   Recall design tokens
    ---------------------------------------------------------------------------
    One source of truth for colour. Components address these by semantic role
    (--text-muted, --bg-raised) rather than by shade, which is what lets the
@@ -21,40 +21,40 @@
   color-scheme: dark;
 
   /* Surfaces, back to front. */
-  --bg: #0c0c0e;
-  --bg-raised: #161619;
-  --bg-panel: #1a1a1e;
-  --bg-hover: #232329;
-  --bg-sunken: #08080a;
+  --bg: #14100e;
+  --bg-raised: #1b1512;
+  --bg-panel: #1b1512;
+  --bg-hover: #241c18;
+  --bg-sunken: #0f0b09;
 
   /* Text, strongest to faintest. */
-  --text: #f2f3f6;
-  --text-muted: #9b9ca6;
-  --text-faint: #6d6e79;
+  --text: #f0e9de;
+  --text-muted: #bcaea2;
+  --text-faint: #9a8b7f;
 
   /* Lines. */
-  --border: #26262c;
-  --border-strong: #3a3a44;
+  --border: rgba(239, 232, 221, 0.1);
+  --border-strong: rgba(239, 232, 221, 0.2);
 
   /* Brand. */
-  --accent: #3d8bff;
-  --accent-hover: #5c9fff;
-  --accent-soft: rgba(61, 139, 255, 0.14);
-  --accent-ring: rgba(61, 139, 255, 0.45);
-  --accent-contrast: #ffffff;
+  --accent: #e08a5e;
+  --accent-hover: #eb9a70;
+  --accent-soft: rgba(224, 138, 94, 0.14);
+  --accent-ring: rgba(224, 138, 94, 0.5);
+  --accent-contrast: #1b120d;
   /* The logo mark and every "AI" affordance share this ramp. */
-  --brand-from: #3d8bff;
-  --brand-to: #22d3ee;
+  --brand-from: #e08a5e;
+  --brand-to: #cf8f9a;
 
   /* Status. */
-  --positive: #34d399;
-  --positive-soft: rgba(52, 211, 153, 0.14);
-  --warning: #f0b357;
-  --warning-soft: rgba(240, 179, 87, 0.16);
-  --danger: #f87184;
-  --danger-soft: rgba(248, 113, 132, 0.14);
+  --positive: #88b0a8;
+  --positive-soft: rgba(136, 176, 168, 0.16);
+  --warning: #cdb98c;
+  --warning-soft: rgba(205, 185, 140, 0.16);
+  --danger: #ee6a45;
+  --danger-soft: rgba(238, 106, 69, 0.14);
   /* The points/star pill in the app bar. */
-  --gold: #f5b842;
+  --gold: #cdb98c;
 
   /* Shape & depth. */
   --radius: 12px;
@@ -75,7 +75,7 @@
   --ink-2: #ffffff;
   --muted: var(--text-muted);
   --accent-dim: var(--accent-soft);
-  --accent-2: #22d3ee;
+  --accent-2: #cf8f9a;
   --good: var(--positive);
   --good-dim: var(--positive-soft);
 }
@@ -84,46 +84,47 @@
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --bg: #f6f7f9;
-  --bg-raised: #ffffff;
-  --bg-panel: #ffffff;
-  --bg-hover: #eef0f4;
-  --bg-sunken: #e7e9ef;
+  --bg: #ede6da;
+  --bg-raised: #f6f1e8;
+  --bg-panel: #f6f1e8;
+  --bg-hover: #e4dccd;
+  --bg-sunken: #d9cebf;
 
-  --text: #14161b;
-  --text-muted: #5c6172;
-  --text-faint: #8a8f9f;
+  --text: #1c1612;
+  --text-muted: #6d6257;
+  --text-faint: #8d8174;
 
-  --border: #e3e6ed;
-  --border-strong: #c9cedb;
+  --border: #d9cebf;
+  --border-strong: #bfb2a0;
 
-  --accent: #1d6fe0;
-  --accent-hover: #175cbd;
-  --accent-soft: rgba(29, 111, 224, 0.1);
-  --accent-ring: rgba(29, 111, 224, 0.38);
+  --accent: #b4552a;
+  --accent-hover: #9a4721;
+  --accent-soft: rgba(180, 85, 42, 0.12);
+  --accent-ring: rgba(180, 85, 42, 0.4);
   --accent-contrast: #ffffff;
-  --brand-from: #1d6fe0;
-  --brand-to: #0ea5c4;
+  --brand-from: #c8643a;
+  --brand-to: #b4707a;
 
-  --positive: #0f9b6c;
-  --positive-soft: #e2f7ef;
-  --warning: #b5761b;
-  --warning-soft: #fdf1dd;
-  --danger: #d33d52;
-  --danger-soft: #fdeaed;
-  --gold: #c98a12;
+  --positive: #3f7d72;
+  --positive-soft: #dde9e5;
+  --warning: #8a6d24;
+  --warning-soft: #efe6cf;
+  --danger: #c4442a;
+  --danger-soft: #f3dcd4;
+  --gold: #8a6d24;
 
   --shadow-sm: 0 1px 2px rgba(18, 20, 28, 0.06);
   --shadow-md: 0 4px 14px -4px rgba(18, 20, 28, 0.14);
   --shadow-lg: 0 18px 44px -12px rgba(18, 20, 28, 0.26);
 
   --ink-2: #000000;
-  --accent-2: #0ea5c4;
+  --accent-2: #b4707a;
 }
 
 /* Expose the semantic roles to Tailwind so `bg-panel` / `text-muted` resolve
    to the same variables the hand-written CSS uses. */
 @theme inline {
+  --font-serif: var(--font-cormorant), 'Iowan Old Style', Georgia, serif;
   --color-bg: var(--bg);
   --color-panel: var(--bg-panel);
   --color-raised: var(--bg-raised);
@@ -164,7 +165,6 @@
 html,
 body {
   margin: 0;
-  height: 100%;
 }
 
 body {
@@ -178,7 +178,6 @@ body {
   /* The app shell owns its own scrolling regions; the page itself never
      scrolls. Previously this also clipped the sticky header's height off the
      bottom of the viewport, because the shell below it was a full 100dvh. */
-  overflow: hidden;
 }
 
 ::selection {
@@ -624,10 +623,10 @@ input:disabled {
   padding: 12px;
   background: radial-gradient(
       120% 120% at 20% 0%,
-      rgba(61, 139, 255, 0.18) 0%,
+      rgba(224, 138, 94, 0.18) 0%,
       transparent 62%
     ),
-    linear-gradient(140deg, #1b1e2b, #0e0f16);
+    linear-gradient(140deg, #241c18, #120d0b);
 }
 
 /* Speaker tiles down the right edge, as a call recording shows them. */
@@ -1024,10 +1023,10 @@ input:disabled {
 .player {
   background: radial-gradient(
       120% 120% at 50% 0%,
-      rgba(61, 139, 255, 0.2) 0%,
+      rgba(224, 138, 94, 0.2) 0%,
       transparent 60%
     ),
-    linear-gradient(140deg, #1b1e2b, #0c0d13);
+    linear-gradient(140deg, #241c18, #120d0b);
   border-radius: var(--radius);
   height: 100%;
   position: relative;
@@ -1100,7 +1099,7 @@ input:disabled {
   bottom: 14px;
   left: 16px;
   right: 16px;
-  color: #edeef7;
+  color: #f0e9de;
   font-size: 13px;
   line-height: 1.5;
   background: rgba(0, 0, 0, 0.45);
@@ -1526,4 +1525,19 @@ input:disabled {
     scrollbar-color: var(--border-strong) transparent;
   }
 }
+}
+
+/* Page titles use the display serif, matching the landing page. Only h1: the
+   h2s are small section labels. Unlayered on purpose — the utilities on these
+   headings ask for sans weights the serif doesn't ship (it stops at 600). */
+h1,
+.brand-name {
+  font-family: var(--font-cormorant), 'Iowan Old Style', Georgia, serif;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.brand-name {
+  font-size: 22px;
+  text-transform: none;
 }

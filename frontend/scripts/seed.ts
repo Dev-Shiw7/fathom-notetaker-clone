@@ -17,10 +17,8 @@
 import { MongoClient } from 'mongodb';
 import { COLLECTIONS } from '../src/lib/mongo';
 import {
-  SEED_ASK_THREADS,
   SEED_HIGHLIGHTS,
   SEED_MEETINGS,
-  SEED_UPCOMING,
 } from '../src/seed';
 import { TEMPLATES } from '../src/seed/templates';
 
@@ -47,8 +45,6 @@ async function main(): Promise<void> {
       [COLLECTIONS.summaries]: SEED_MEETINGS.flatMap((m) => m.summaries),
       [COLLECTIONS.analytics]: SEED_MEETINGS.map((m) => m.analytics),
       [COLLECTIONS.highlights]: SEED_HIGHLIGHTS,
-      [COLLECTIONS.upcoming]: SEED_UPCOMING,
-      [COLLECTIONS.askThreads]: SEED_ASK_THREADS,
       [COLLECTIONS.templates]: TEMPLATES,
       [COLLECTIONS.shares]: [],
     };

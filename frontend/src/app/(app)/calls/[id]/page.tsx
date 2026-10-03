@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import {
   getAnalytics,
-  getAskThreads,
   getMeeting,
   getSummaries,
   getTranscript,
@@ -30,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const meeting = await getMeeting(id);
   return {
-    title: meeting ? `${meeting.title} — Recap` : 'Call not found — Recap',
+    title: meeting ? `${meeting.title} — Recall` : 'Call not found — Recall',
   };
 }
 
@@ -39,12 +38,11 @@ export default async function CallPage({ params, searchParams }: Props) {
   const meeting = await getMeeting(id);
   if (!meeting) notFound();
 
-  const [transcript, analytics, summaries, threads, everyMeeting, query] =
+  const [transcript, analytics, summaries, everyMeeting, query] =
     await Promise.all([
       getTranscript(id),
       getAnalytics(id),
       getSummaries(id),
-      getAskThreads(),
       listMeetings(),
       searchParams,
     ]);
@@ -59,7 +57,6 @@ export default async function CallPage({ params, searchParams }: Props) {
       transcript={transcript}
       analytics={analytics}
       summaries={summaries}
-      threads={threads}
       related={everyMeeting
         .filter((other) => other.id !== meeting.id)
         .slice(0, 4)

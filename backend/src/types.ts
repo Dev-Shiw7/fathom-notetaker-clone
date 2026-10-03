@@ -110,6 +110,7 @@ export interface EventPayloads {
   'recording.tick': { elapsedMs: number };
   'recording.completed': { durationMs: number };
   'transcript.generated': { turnCount: number; participantCount: number };
+  'transcript.posted': { meetingId: string | null };
   'summary.delay.started': { delayMs: number; reason: LeaveReason };
   'summary.delivered': { channel: 'chat'; messages: number };
   'session.ended': {

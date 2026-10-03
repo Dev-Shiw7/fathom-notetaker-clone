@@ -1,6 +1,6 @@
 import IntegrationsPanel from '@/components/settings/IntegrationsPanel';
 
-export const metadata = { title: 'Calendar & bot — Recap' };
+export const metadata = { title: 'Calendar & bot — Recall' };
 
 // Always rendered fresh: it shows live queue and calendar state.
 export const dynamic = 'force-dynamic';

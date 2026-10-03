@@ -3,7 +3,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import type {
-  AskThread,
   Meeting,
   MeetingAnalytics,
   Summary,
@@ -57,7 +56,6 @@ interface Props {
   transcript: Transcript | null;
   analytics: MeetingAnalytics | null;
   summaries: Summary[];
-  threads: AskThread[];
   related: RelatedCall[];
   meetingTitles: Record<string, string>;
   initialSeekMs: number | null;
@@ -80,7 +78,6 @@ export function CallView({
   transcript,
   analytics,
   summaries,
-  threads,
   related,
   meetingTitles,
   initialSeekMs,
@@ -295,7 +292,7 @@ export function CallView({
         body: JSON.stringify({
           meetingId: meeting.id,
           meetingUrl: `https://meet.google.com/${meeting.id}`,
-          botName: 'Recap Notetaker',
+          botName: 'Recall Notetaker',
         }),
       });
 
@@ -312,7 +309,7 @@ export function CallView({
         return;
       }
 
-      toast('Recap is joining the meeting.', 'success');
+      toast('Recall is joining the meeting.', 'success');
     } catch (error) {
       toast((error as Error).message, 'error');
     } finally {
@@ -420,7 +417,7 @@ export function CallView({
 
         {/* Below 1080px the rail is hidden, so this is the only way back. */}
         <Link
-          href="/"
+          href="/calls"
           className="tap mb-3 inline-flex shrink-0 items-center gap-1.5 self-start text-[12.5px] font-bold text-[var(--text-muted)]"
         >
           <ChevronLeftIcon size={14} />
@@ -639,7 +636,7 @@ export function CallView({
             [
               ['summary', 'Summary'],
               ['transcript', 'Transcript'],
-              ['ask', 'Ask Recap'],
+              ['ask', 'Ask Recall'],
             ] as const
           ).map(([id, label]) => (
             <button
@@ -827,7 +824,6 @@ export function CallView({
 
           {tab === 'ask' && (
             <AskPanel
-              threads={threads}
               meetingTitles={meetingTitles}
               currentMeetingId={meeting.id}
               onSeek={(ms) => pb.seek(ms)}
@@ -890,7 +886,7 @@ export function CallView({
           title="Queue the capture bot for this meeting"
         >
           {botJoining ? <SpinnerIcon size={14} /> : <BotIcon size={14} />}
-          {botJoining ? 'Starting…' : 'Send Recap to this meeting'}
+          {botJoining ? 'Starting…' : 'Send Recall to this meeting'}
         </button>
 
         <h2 className="rail-label">Attendees</h2>

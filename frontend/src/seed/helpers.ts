@@ -131,14 +131,14 @@ export function participant(
  * both themes.
  */
 export const SPEAKER_COLORS = [
-  '#6366f1',
-  '#f59e0b',
-  '#10b981',
-  '#ec4899',
-  '#0ea5e9',
-  '#8b5cf6',
-  '#ef4444',
-  '#14b8a6',
+  '#e08a5e',
+  '#88b0a8',
+  '#cdb98c',
+  '#cf8f9a',
+  '#a89ac9',
+  '#c9744f',
+  '#6f9bb3',
+  '#b0b878',
 ] as const;
 
 /** Finds the turn covering a position, for citation lookups. */

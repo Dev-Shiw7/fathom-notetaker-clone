@@ -33,6 +33,17 @@ export interface JoinOptions {
   requireMuted: boolean;
   /** Signed-in Chrome profile directory; absent means join as a guest. */
   profileDir: string | undefined;
+  /** Title for the recording in the app; absent falls back to the meeting code. */
+  title?: string | null;
+  /** Runner token, sent when posting the transcript back to the app. */
+  runnerToken?: string | undefined;
+  /**
+   * Progress hook. `watch` uses it to mirror the bot's lifecycle onto the job
+   * row, which is what the app's live status reads.
+   */
+  onStatus?: (status: 'joining' | 'recording', message: string) => void;
+  /** Called with the id the app filed the recording under, once it has one. */
+  onResult?: (meetingId: string) => void;
 }
 
 export interface DoctorOptions {
@@ -318,6 +329,10 @@ export function parseCommand(argv: string[]): Command {
       keepOpen,
       requireMuted: values['require-muted'] === true,
       profileDir,
+      runnerToken:
+        (typeof values.token === 'string' && values.token.trim()) ||
+        process.env.BOT_TOKEN ||
+        undefined,
     },
   };
 }
@@ -358,6 +373,7 @@ OPTIONS
   --no-summary-chat            Skip the end-of-meeting summary post
   --app-url <url>              Link included in the summary post
   --require-muted              Abort if the UI mute cannot be verified
+  --token <secret>             Runner token for posting results (or BOT_TOKEN)
   --profile <dir>              Signed-in Chrome profile dir (default: guest join)
   --headless                   Experimental; headful is supported
   --keep-open                  Leave the browser open on exit, for debugging

@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { token } = await params;
   const share = await getShare(token);
   return {
-    title: share ? `${share.label} — Recap` : 'Clip not found — Recap',
+    title: share ? `${share.label} — Recall` : 'Clip not found — Recall',
     // A clip may be sent outside the company; keep it out of search results.
     robots: { index: false, follow: false },
   };
@@ -51,10 +51,10 @@ export default async function SharePage({ params }: Props) {
             links are unguessable, so there is nothing to browse here.
           </p>
           <Link
-            href="/"
+            href="/calls"
             className="tap mt-5 inline-block text-sm font-bold text-[var(--accent)]"
           >
-            Go to Recap →
+            Go to Recall →
           </Link>
         </div>
       </div>
@@ -122,8 +122,8 @@ export default async function SharePage({ params }: Props) {
 
       <p className="mt-8 border-t border-[var(--border)] pt-4 text-xs text-[var(--text-muted)]">
         Shared from{' '}
-        <Link href="/" className="tap font-bold text-[var(--accent)]">
-          Recap
+        <Link href="/calls" className="tap font-bold text-[var(--accent)]">
+          Recall
         </Link>
         . Anyone with this link can view the clip.
       </p>

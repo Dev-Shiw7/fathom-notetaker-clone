@@ -1,6 +1,6 @@
 import React from 'react';
 
-export const metadata = { title: 'Design preview — Recap' };
+export const metadata = { title: 'Design preview — Recall' };
 
 export default function DesignPage() {
   return (
@@ -9,7 +9,7 @@ export default function DesignPage() {
     <div className="h-full w-full">
       <iframe
         src="/design-index.html"
-        title="Recap design preview"
+        title="Recall design preview"
         className="h-full w-full border-0"
       />
     </div>

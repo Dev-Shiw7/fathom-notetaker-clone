@@ -32,9 +32,9 @@ export function TopBar({ callCount }: Props) {
   return (
     <header className="appbar">
       <div className="appbar-inner">
-        <Link href="/" aria-label="Recap home" className="brand">
+        <Link href="/calls" aria-label="Recall home" className="brand">
           <LogoMark size={26} className="brand-mark" />
-          <span className="brand-name">Recap</span>
+          <span className="brand-name">Recall</span>
         </Link>
 
         <SearchField />
@@ -65,7 +65,7 @@ export function TopBar({ callCount }: Props) {
 
           {/* The workspace has no accounts, so this identifies the workspace
               rather than pretending to be a signed-in user's avatar. */}
-          <span className="avatar-btn" aria-hidden title="Recap workspace">
+          <span className="avatar-btn" aria-hidden title="Recall workspace">
             R
           </span>
         </div>
@@ -83,7 +83,7 @@ function ReferButton() {
       className="appbar-action"
       onClick={() =>
         toast(
-          'Referrals are part of hosted Recap — this build has no accounts to refer anyone to.',
+          'Referrals are part of hosted Recall — this build has no accounts to refer anyone to.',
           'info',
           5000,
         )

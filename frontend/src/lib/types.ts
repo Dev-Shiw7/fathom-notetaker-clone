@@ -167,27 +167,6 @@ export interface Share {
   createdAt: string;
 }
 
-/** Pre-seeded cross-meeting Q&A. The runtime makes no LLM calls. */
-export interface AskThread {
-  id: string;
-  question: string;
-  answer: string;
-  /** Meetings the answer draws on, so every claim stays auditable. */
-  sources: { meetingId: string; citation: Citation; quote: string }[];
-}
-
-/** A calendar event that hasn't happened yet, for the connected-calendar UI. */
-export interface UpcomingMeeting {
-  id: string;
-  title: string;
-  startsAt: string;
-  durationMs: number;
-  platform: MeetingPlatform;
-  attendeeNames: string[];
-  /** Whether the notetaker is set to join this one. */
-  botWillJoin: boolean;
-}
-
 /**
  * A unit of work for the capture bot.
  *

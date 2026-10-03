@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { formatMeetingDate } from '@/lib/analytics';
 import type { BotJob, CalendarConnection, CalendarEvent } from '@/lib/types';
 import { AlertIcon, BotIcon, CheckIcon, SpinnerIcon } from '@/components/ui/Icon';
@@ -310,13 +311,23 @@ export default function IntegrationsPanel() {
                       {job.lastMessage ? ` · ${job.lastMessage}` : ''}
                     </div>
                   </div>
-                  <span
-                    className={`shrink-0 rounded-full border px-2 py-0.5 text-[11px] ${
-                      STATUS_STYLE[job.status] ?? STATUS_STYLE.queued
-                    }`}
-                  >
-                    {job.status}
-                  </span>
+                  <div className="flex shrink-0 items-center gap-3">
+                    {job.resultMeetingId && (
+                      <Link
+                        href={`/calls/${encodeURIComponent(job.resultMeetingId)}`}
+                        className="tap text-xs font-bold text-[var(--accent)]"
+                      >
+                        Open call
+                      </Link>
+                    )}
+                    <span
+                      className={`rounded-full border px-2 py-0.5 text-[11px] ${
+                        STATUS_STYLE[job.status] ?? STATUS_STYLE.queued
+                      }`}
+                    >
+                      {job.status}
+                    </span>
+                  </div>
                 </li>
               ))}
             </ul>

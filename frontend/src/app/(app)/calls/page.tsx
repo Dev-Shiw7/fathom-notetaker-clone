@@ -1,4 +1,4 @@
-import { listMeetings, getAskThreads } from '@/lib/data';
+import { listMeetings } from '@/lib/data';
 import { Library } from '@/components/library/Library';
 
 /**
@@ -12,12 +12,11 @@ import { Library } from '@/components/library/Library';
 export const dynamic = 'force-dynamic';
 
 export default async function Home() {
-  const [meetings, threads] = await Promise.all([listMeetings(), getAskThreads()]);
+  const meetings = await listMeetings();
 
   return (
     <Library
       meetings={meetings}
-      threads={threads}
       nowIso={new Date().toISOString()}
     />
   );

@@ -1,22 +1,22 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import type { AskThread } from '@/lib/types';
+import type { AskAnswer } from '@/lib/ask';
 import { formatTimestamp } from '@/lib/analytics';
-import { SendIcon, SparkleIcon } from '@/components/ui/Icon';
+import { SendIcon, SparkleIcon, SpinnerIcon } from '@/components/ui/Icon';
 
 interface Props {
-  threads: AskThread[];
   /** Titles by meeting id, so a citation can name the call it came from. */
   meetingTitles: Record<string, string>;
   /**
-   * Set on a call page. Citations into *this* call move the playhead; the rest
-   * stay links, because seeking a recording that is not open is meaningless.
+   * Set on a call page. Questions are then answered from *this* call only, and
+   * citations into it move the playhead; the rest stay links, because seeking
+   * a recording that is not open is meaningless.
    */
   currentMeetingId?: string;
   onSeek?: (ms: number) => void;
-  /** "ASK RECAP" in the library rail; the call page renders its own tab. */
+  /** "ASK RECALL" in the library rail; the call page renders its own tab. */
   heading?: string;
   /** Drops the dividing edge and gutters, for use inside a call's tab strip. */
   bare?: boolean;
@@ -25,82 +25,81 @@ interface Props {
 interface Exchange {
   id: number;
   question: string;
-  thread: AskThread | null;
+  answer: AskAnswer | null;
+  error: string | null;
 }
 
+const SUGGESTIONS = [
+  'What were the action items?',
+  'What decisions were made?',
+  'What was left unresolved?',
+];
+
 /**
- * Cross-meeting Q&A.
+ * Q&A over the stored transcripts.
  *
- * The answers are pre-seeded rather than generated: the runtime makes no LLM
- * calls, and every answer carries citations back into a recording, which is
- * the property that makes the feature worth having at all. A question with no
- * seeded answer says so instead of inventing one — a notetaker that
- * confabulates is worse than one that admits the gap.
+ * Each question is sent to /api/ask, which retrieves the transcript turns that
+ * match and has the model answer from only those, citing them. Citations are
+ * validated server-side against the turns it supplied, so a link here always
+ * points at something that was actually said. With nothing relevant found the
+ * answer says so instead of improvising.
  */
 export function AskPanel({
-  threads,
   meetingTitles,
   currentMeetingId,
   onSeek,
-  heading = 'Ask Recap',
+  heading = 'Ask Recall',
   bare = false,
 }: Props) {
   const [exchanges, setExchanges] = useState<Exchange[]>([]);
   const [draft, setDraft] = useState('');
+  const [pending, setPending] = useState(false);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const nextId = useRef(1);
-
-  /** Suggestions still worth offering — asked questions drop off the list. */
-  const suggestions = useMemo(() => {
-    const asked = new Set(exchanges.map((e) => e.thread?.id).filter(Boolean));
-    return threads.filter((thread) => !asked.has(thread.id));
-  }, [threads, exchanges]);
 
   useEffect(() => {
     // Keep the newest exchange in view as the thread grows.
     const body = bodyRef.current;
     if (body) body.scrollTop = body.scrollHeight;
-  }, [exchanges.length]);
+  }, [exchanges, pending]);
 
-  const ask = useCallback((question: string, thread: AskThread | null) => {
-    setExchanges((current) => [
-      ...current,
-      { id: nextId.current++, question, thread },
-    ]);
-  }, []);
+  const ask = useCallback(
+    async (question: string) => {
+      const id = nextId.current++;
+      setPending(true);
+      setExchanges((current) => [...current, { id, question, answer: null, error: null }]);
 
-  /**
-   * Matches a typed question to a seeded thread on shared significant words.
-   * Deliberately crude: it is a lookup over three canned answers, not a
-   * retrieval system, and pretending otherwise would be the dishonest part.
-   */
-  const match = useCallback(
-    (question: string): AskThread | null => {
-      const words = question
-        .toLowerCase()
-        .split(/[^a-z0-9]+/)
-        .filter((word) => word.length > 3);
-      if (words.length === 0) return null;
-
-      let best: { thread: AskThread; score: number } | null = null;
-      for (const thread of threads) {
-        const haystack = `${thread.question} ${thread.answer}`.toLowerCase();
-        const score = words.filter((word) => haystack.includes(word)).length;
-        if (score > 0 && (!best || score > best.score)) best = { thread, score };
+      let patch: Pick<Exchange, 'answer' | 'error'>;
+      try {
+        const response = await fetch('/api/ask', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ question, meetingId: currentMeetingId }),
+        });
+        const body = await response.json();
+        patch = response.ok
+          ? { answer: body as AskAnswer, error: null }
+          : { answer: null, error: body.error ?? 'Something went wrong.' };
+      } catch {
+        patch = { answer: null, error: 'Could not reach the server.' };
       }
-      // One incidental word in common is a coincidence, not a match.
-      return best && best.score >= 2 ? best.thread : null;
+
+      setExchanges((current) => current.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+      setPending(false);
     },
-    [threads],
+    [currentMeetingId],
   );
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const question = draft.trim();
-    if (!question) return;
-    ask(question, match(question));
+    if (!question || pending) return;
     setDraft('');
+    void ask(question);
   };
+
+  const asked = new Set(exchanges.map((e) => e.question));
+  const suggestions = SUGGESTIONS.filter((q) => !asked.has(q));
 
   return (
     <aside className={`ask-panel ${bare ? 'ask-panel--bare' : ''}`}>
@@ -113,60 +112,54 @@ export function AskPanel({
         {exchanges.map((exchange) => (
           // A Fragment, not a wrapper: the question and the answer have to be
           // direct children of .ask-body for its bottom-alignment and gap to
-          // apply to them. (`display: contents` would not do — the rule that
-          // pushes the log to the bottom sets a margin, and a contents box has
-          // no box to put one on.)
+          // apply to them.
           <Fragment key={exchange.id}>
             <p className="ask-question">{exchange.question}</p>
 
-            {exchange.thread ? (
+            {exchange.answer ? (
               <div className="ask-answer">
-                <p className="m-0">{exchange.thread.answer}</p>
+                <p className="m-0">{exchange.answer.answer}</p>
 
-                <ul className="mt-3 space-y-2 border-t border-[var(--border)] pt-3">
-                  {exchange.thread.sources.map((source, index) => (
-                    <li key={index} className="text-[12px] leading-relaxed">
-                      <span className="block italic text-[var(--text-faint)]">
-                        “{source.quote}”
-                      </span>
-                      <Citation
-                        meetingId={source.meetingId}
-                        title={meetingTitles[source.meetingId] ?? 'this call'}
-                        startMs={source.citation.startMs}
-                        currentMeetingId={currentMeetingId}
-                        onSeek={onSeek}
-                      />
-                    </li>
-                  ))}
-                </ul>
+                {exchange.answer.sources.length > 0 && (
+                  <ul className="mt-3 space-y-2 border-t border-[var(--border)] pt-3">
+                    {exchange.answer.sources.map((source, index) => (
+                      <li key={index} className="text-[12px] leading-relaxed">
+                        <span className="block italic text-[var(--text-faint)]">
+                          “{source.quote}”
+                        </span>
+                        <Citation
+                          meetingId={source.meetingId}
+                          title={meetingTitles[source.meetingId] ?? 'this call'}
+                          startMs={source.citation.startMs}
+                          currentMeetingId={currentMeetingId}
+                          onSeek={onSeek}
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
+            ) : exchange.error ? (
+              <p className="ask-answer text-[var(--danger)]">{exchange.error}</p>
             ) : (
-              <p className="ask-answer">
-                Ask is pre-seeded in this build, and nothing here covers that
-                question — so rather than invent an answer: try{' '}
-                <span className="font-semibold text-[var(--text)]">⌘K</span> to
-                search what was actually said across every transcript.
+              <p className="ask-answer flex items-center gap-2 text-[var(--text-muted)]">
+                <SpinnerIcon size={14} /> Reading the transcripts…
               </p>
             )}
           </Fragment>
         ))}
 
-        {suggestions.map((thread) => (
+        {suggestions.map((question) => (
           <button
-            key={thread.id}
+            key={question}
             type="button"
             className="ask-suggest"
-            onClick={() => ask(thread.question, thread)}
+            disabled={pending}
+            onClick={() => void ask(question)}
           >
-            {thread.question}
+            {question}
           </button>
         ))}
-
-        {suggestions.length === 0 && exchanges.length === 0 && (
-          <p className="text-center text-[12.5px] leading-relaxed text-[var(--text-faint)]">
-            No seeded questions for this workspace yet.
-          </p>
-        )}
       </div>
 
       <form className="ask-foot" onSubmit={submit}>
@@ -175,13 +168,13 @@ export function AskPanel({
             type="text"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
-            placeholder="Ask anything…"
+            placeholder={currentMeetingId ? 'Ask about this call…' : 'Ask anything…'}
             aria-label="Ask a question about your calls"
           />
           <button
             type="submit"
             className="ask-send"
-            disabled={draft.trim().length === 0}
+            disabled={draft.trim().length === 0 || pending}
             aria-label="Ask"
           >
             <SendIcon size={15} />

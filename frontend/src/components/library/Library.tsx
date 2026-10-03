@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import type { AskThread, Meeting } from '@/lib/types';
+import type { Meeting } from '@/lib/types';
 import { formatWeekday, relativeDayGroup } from '@/lib/analytics';
 import { CallCard } from './CallCard';
 import { AskPanel } from '@/components/ask/AskPanel';
@@ -11,7 +11,6 @@ import { FolderPlusIcon, SearchIcon, UsersIcon } from '@/components/ui/Icon';
 
 interface Props {
   meetings: Meeting[];
-  threads: AskThread[];
   /**
    * The clock, read once on the server. Every relative date heading is derived
    * from this rather than from `Date.now()`, so the server and the browser
@@ -29,7 +28,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'playlists', label: 'Playlists' },
 ];
 
-export function Library({ meetings, threads, nowIso }: Props) {
+export function Library({ meetings, nowIso }: Props) {
   const [tab, setTab] = useState<TabId>('mine');
 
   /**
@@ -90,7 +89,7 @@ export function Library({ meetings, threads, nowIso }: Props) {
               <EmptyState
                 icon={<SearchIcon size={22} />}
                 title="No calls yet"
-                body="Connect a calendar and Recap will join your meetings and file them here."
+                body="Connect a calendar and Recall will join your meetings and file them here."
                 action={{ href: '/settings', label: 'Connect a calendar' }}
               />
             ) : (
@@ -131,9 +130,8 @@ export function Library({ meetings, threads, nowIso }: Props) {
         </div>
 
         <AskPanel
-          threads={threads}
           meetingTitles={meetingTitles}
-          heading="Ask Recap"
+          heading="Ask Recall"
         />
       </div>
     </div>

@@ -12,11 +12,14 @@
  * meeting ends" is implemented as: wait until the call is winding down, hold
  * for `summaryDelayMs`, post, then leave. The bot is the last one out.
  *
- * The summary content itself is still stubbed upstream (see recording.ts) —
- * this module is about delivery, and works identically once real summaries
- * land behind the same shape.
+ * The summary itself is written by the app (see frontend/src/lib/summarize.ts)
+ * from the real transcript; this module only decides how it reads in chat.
  */
-import type { MeetingSummary } from './transcription.js';
+export interface MeetingSummary {
+  text: string;
+  keyPoints: string[];
+  actionItems: Array<{ task: string; owner?: string; dueDate?: string }>;
+}
 
 /** Meet silently truncates very long chat messages; stay well under. */
 const MAX_LINE = 900;

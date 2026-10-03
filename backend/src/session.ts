@@ -22,8 +22,8 @@ import { confirmJoinRequested, waitForAdmission } from './meet/admission.js';
 import { detectExit, getParticipantCount, leaveCall } from './meet/incall.js';
 import { announce, postSummary } from './meet/chat.js';
 import { INCALL_LEAVE_BUTTON, isPresent } from './meet/selectors.js';
-import { recordStubTranscript } from './recording.js';
-import { formatSummaryForChat } from './summary-delivery.js';
+import { AudioCapture } from './meet/capture.js';
+import { formatSummaryForChat, type MeetingSummary } from './summary-delivery.js';
 import {
   ExitCode,
   type BotState,
@@ -82,6 +82,15 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
     });
 
     const { page } = launched;
+
+    // The audio hook has to be in place before Meet creates its connections.
+    const apiUrl = (options.appUrl || 'http://localhost:3000').replace(/\/$/, '');
+    const capture = await AudioCapture.install(page, {
+      apiUrl,
+      token: options.runnerToken,
+      sessionId,
+      log,
+    });
 
     // ---- Navigate ------------------------------------------------------
     setState('NAVIGATING');
@@ -181,6 +190,7 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
 
       // ---- Waiting room ---------------------------------------------------
       setState('WAITING_ROOM');
+      options.onStatus?.('joining', 'Waiting to be admitted');
       const admission = await waitForAdmission(
         page,
         options.admissionTimeoutMs,
@@ -201,6 +211,7 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
 
     // ---- In call ---------------------------------------------------------
     setState('IN_CALL');
+    options.onStatus?.('recording', 'In the call');
     const joinedAt = Date.now();
     await artifacts.screenshot(page, 'in-call');
 
@@ -218,49 +229,69 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
       }
     }
 
+    await capture.start();
+
     const reason = await monitorCall(page, options, joinedAt, interrupt, log);
     const actualDurationMs = Math.max(10_000, Date.now() - joinedAt);
 
-    // ---- Record transcript ----------------------------------------------
-    const { turns, summary } = await recordStubTranscript(
-      page,
-      options.meetingCode || 'unknown',
-      log,
-      actualDurationMs,
-    );
-    
-    // Post transcript to web API for storage
-    // Try to post, but don't fail the session if it doesn't work (web app may not be running)
-    const apiUrl = (options.appUrl || 'http://localhost:3000').replace(/\/$/, '');
-    try {
-      const apiResponse = await fetch(`${apiUrl}/api/bot/transcript`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          meetingCode: options.meetingCode,
-          meetingUrl: options.meetingUrl,
-          botName: options.botName,
-          turns,
-          summary,
-        }),
-      });
-      
-      if (apiResponse.ok) {
-        log.emit('warn', {
-          message: 'Transcript posted to web API',
-          detail: 'The web UI should now display this meeting',
+    // ---- Finish the recording --------------------------------------------
+    const captured = await capture.stop();
+    log.emit('warn', {
+      message: 'Recording stopped',
+      detail: `${captured.chunksUploaded} slices uploaded, ${captured.chunksFailed} failed, ${captured.samples.length} speaker samples`,
+    });
+
+    // The app transcribes, summarises and files the meeting. Waiting here is
+    // deliberate: the summary is posted into the chat from inside the call, so
+    // the bot has to hold the result before it leaves.
+    let summary: MeetingSummary | null = null;
+    let meetingId: string | null = null;
+    if (captured.chunksUploaded > 0) {
+      try {
+        const response = await fetch(`${apiUrl}/api/bot/finalize`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(options.runnerToken ? { authorization: `Bearer ${options.runnerToken}` } : {}),
+          },
+          body: JSON.stringify({
+            sessionId,
+            meetingCode: options.meetingCode ?? sessionId.slice(0, 8),
+            title: options.title ?? null,
+            startedAt: startedAt.toISOString(),
+            durationMs: captured.durationMs,
+            mime: captured.mime,
+            samples: captured.samples,
+          }),
+          signal: AbortSignal.timeout(10 * 60_000),
         });
-      } else {
+        const body = (await response.json().catch(() => null)) as {
+          error?: string;
+          meeting?: { id: string };
+          summary?: MeetingSummary | null;
+        } | null;
+
+        if (response.ok && body?.meeting?.id) {
+          meetingId = body.meeting.id;
+          summary = body.summary ?? null;
+          options.onResult?.(meetingId);
+          log.emit('transcript.posted', { meetingId });
+        } else {
+          log.emit('warn', {
+            message: 'The app could not process the recording',
+            detail: `HTTP ${response.status}: ${body?.error ?? 'no detail'}`,
+          });
+        }
+      } catch (err) {
         log.emit('warn', {
-          message: 'Web API returned error when saving transcript',
-          detail: `HTTP ${apiResponse.status}`,
+          message: 'Could not reach the app to process the recording',
+          detail: (err as Error).message,
         });
       }
-    } catch (err) {
-      // Web app might not be running; this is fine for testing
+    } else {
       log.emit('warn', {
-        message: 'Could not post transcript to web API (web app may not be running)',
-        detail: (err as Error).message,
+        message: 'No audio was captured, so there is nothing to transcribe',
+        detail: 'Nobody spoke, or the audio hook did not attach',
       });
     }
 
@@ -275,7 +306,7 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
     // there is nobody left in the call to read it — waiting out the full
     // delay anyway just adds minutes of sitting in an empty room on top of
     // however long `aloneTimeoutMs` already took to notice that.
-    if (options.summaryChat && !interrupt.requested) {
+    if (options.summaryChat && summary && !interrupt.requested) {
       if (options.summaryDelayMs > 0 && reason !== 'ALONE') {
         log.emit('summary.delay.started', {
           delayMs: options.summaryDelayMs,
@@ -286,7 +317,12 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
 
       const lines = formatSummaryForChat(summary, {
         botName: options.botName,
-        appUrl: options.appUrl,
+        // Deep-link to this recording. The app's root is the marketing page,
+        // so linking to it would send attendees somewhere with no notes.
+        appUrl:
+          options.appUrl && meetingId
+            ? `${apiUrl}/calls/${encodeURIComponent(meetingId)}`
+            : undefined,
       });
       const { sent, total } = await postSummary(page, lines);
 

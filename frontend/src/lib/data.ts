@@ -1,28 +1,23 @@
 /**
  * The query layer. Every page reads through this module.
  *
- * It serves from MongoDB when `MONGODB_URI` is set and from the bundled seed
- * data otherwise. That fallback is not a testing shim — it means the repo runs
- * for anyone who clones it with no database to provision, and it let the whole
- * UI be built and verified before an Atlas cluster existed.
+ * With `MONGODB_URI` set, MongoDB is the only source of truth: a read that
+ * fails throws, so an outage shows up as an error instead of quietly serving
+ * canned content. Without it the app runs in an explicit local mode on the
+ * bundled seed meetings, so the repo still starts for someone who has no
+ * database; nothing the bot produces is stored in that mode.
  *
- * Search runs in memory on both paths. At ten meetings that is far simpler than
- * a text index and behaves identically in dev and production; the moment this
- * outgrows memory it becomes an Atlas Search index behind the same function
- * signature.
+ * Search runs in memory over the stored transcripts. At this scale that is
+ * simpler than a text index and behaves identically in dev and production; it
+ * becomes an Atlas Search index behind the same signature when it has to.
  */
 import { randomUUID } from 'node:crypto';
 import { COLLECTIONS, db, hasMongo } from './mongo';
 import { computeAnalytics, formatMeetingDate } from './analytics';
-import {
-  SEED_ASK_THREADS,
-  SEED_HIGHLIGHTS,
-  SEED_MEETINGS,
-  SEED_UPCOMING,
-} from '@/seed';
+import { SEED_HIGHLIGHTS, SEED_MEETINGS } from '@/seed';
+import { participant, SPEAKER_COLORS } from '@/seed/helpers';
 import { TEMPLATES } from '@/seed/templates';
 import type {
-  AskThread,
   Highlight,
   Meeting,
   MeetingAnalytics,
@@ -32,22 +27,17 @@ import type {
   Summary,
   SummaryTemplate,
   Transcript,
-  UpcomingMeeting,
+  TranscriptTurn,
 } from './types';
 
 const globalForData = globalThis as unknown as {
   memoryHighlights?: Highlight[];
   memoryShares?: Share[];
-  memoryMeetings?: Meeting[];
-  memoryTranscripts?: Transcript[];
-  memorySummaries?: Summary[];
 };
 
+// Local mode only (no MONGODB_URI): visitor-created highlights and shares.
 const memoryHighlights: Highlight[] = (globalForData.memoryHighlights ??= []);
 const memoryShares: Share[] = (globalForData.memoryShares ??= []);
-const memoryMeetings: Meeting[] = (globalForData.memoryMeetings ??= []);
-const memoryTranscripts: Transcript[] = (globalForData.memoryTranscripts ??= []);
-const memorySummaries: Summary[] = (globalForData.memorySummaries ??= []);
 
 /** Strips Mongo's `_id` so documents match the domain types exactly. */
 function clean<T>(doc: unknown): T {
@@ -56,58 +46,26 @@ function clean<T>(doc: unknown): T {
   return rest as T;
 }
 
-/** Throttles the unreachable-database warning; these reads run per request. */
-let lastUnreachableWarning = 0;
-
-/**
- * Runs a database read, falling back to bundled seed content when the database
- * is absent **or unreachable**.
- *
- * `hasMongo` only answers "is MONGODB_URI set?". Every read here used to branch
- * on it alone, so a configured-but-unreachable cluster threw straight out of
- * the data layer and took the whole page down with a 500 — even though the
- * seed content that makes this repo runnable without a database was sitting
- * right there. mongo.ts already promises this behaviour ("fail fast and fall
- * back rather than hang a page load while Atlas is cold or unreachable"); this
- * is what makes it true.
- *
- * Writes deliberately do not use this: silently discarding a write into seed
- * data would be worse than failing.
- */
+/** Reads from the database, or from seed content in explicit local mode. */
 async function readOrSeed<T>(
   fromDatabase: () => Promise<T>,
   fromSeed: () => T,
 ): Promise<T> {
-  if (!hasMongo) return fromSeed();
-  try {
-    return await fromDatabase();
-  } catch (err) {
-    const now = Date.now();
-    if (now - lastUnreachableWarning > 30_000) {
-      lastUnreachableWarning = now;
-      console.warn(
-        `[data] database unreachable, serving seed content: ${(err as Error).message}`,
-      );
-    }
-    return fromSeed();
-  }
+  return hasMongo ? fromDatabase() : fromSeed();
 }
 
 export async function listMeetings(): Promise<Meeting[]> {
   const meetings = await readOrSeed(
     async () => {
-      const dbList = (
+      return (
         await (await db())
           .collection(COLLECTIONS.meetings)
           .find({})
           .sort({ startedAt: -1 })
           .toArray()
       ).map((d) => clean<Meeting>(d));
-      const seenIds = new Set(dbList.map((m) => m.id));
-      const unsavedMemory = memoryMeetings.filter((m) => !seenIds.has(m.id));
-      return [...dbList, ...unsavedMemory];
     },
-    () => [...SEED_MEETINGS.map((m) => m.meeting), ...memoryMeetings],
+    () => SEED_MEETINGS.map((m) => m.meeting),
   );
 
   return [...meetings].sort(
@@ -116,52 +74,37 @@ export async function listMeetings(): Promise<Meeting[]> {
 }
 
 export async function getMeeting(id: string): Promise<Meeting | null> {
-  const memoryFallback = () =>
-    SEED_MEETINGS.find((m) => m.meeting.id === id)?.meeting ??
-    memoryMeetings.find((m) => m.id === id) ??
-    null;
-
   return readOrSeed(
     async () => {
       const doc = await (await db()).collection(COLLECTIONS.meetings).findOne({ id });
-      return doc ? clean<Meeting>(doc) : memoryFallback();
+      return doc ? clean<Meeting>(doc) : null;
     },
-    memoryFallback,
+    () => SEED_MEETINGS.find((m) => m.meeting.id === id)?.meeting ?? null,
   );
 }
 
 export async function getTranscript(meetingId: string): Promise<Transcript | null> {
-  const memoryFallback = () =>
-    SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.transcript ??
-    memoryTranscripts.find((t) => t.meetingId === meetingId) ??
-    null;
-
   return readOrSeed(
     async () => {
       const doc = await (await db())
         .collection(COLLECTIONS.transcripts)
         .findOne({ meetingId });
-      return doc ? clean<Transcript>(doc) : memoryFallback();
+      return doc ? clean<Transcript>(doc) : null;
     },
-    memoryFallback,
+    () => SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.transcript ?? null,
   );
 }
 
 export async function getSummaries(meetingId: string): Promise<Summary[]> {
-  const memoryFallback = () =>
-    SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.summaries ??
-    memorySummaries.filter((s) => s.meetingId === meetingId);
-
   return readOrSeed(
-    async () => {
-      const docs = await (await db())
-        .collection(COLLECTIONS.summaries)
-        .find({ meetingId })
-        .toArray();
-      const cleaned = docs.map((d) => clean<Summary>(d));
-      return cleaned.length > 0 ? cleaned : memoryFallback();
-    },
-    memoryFallback,
+    async () =>
+      (
+        await (await db())
+          .collection(COLLECTIONS.summaries)
+          .find({ meetingId })
+          .toArray()
+      ).map((d) => clean<Summary>(d)),
+    () => SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.summaries ?? [],
   );
 }
 
@@ -175,16 +118,7 @@ export async function getAnalytics(
         .findOne({ meetingId });
       return doc ? clean<MeetingAnalytics>(doc) : null;
     },
-    () => {
-      const seed = SEED_MEETINGS.find((m) => m.meeting.id === meetingId);
-      if (seed) return seed.analytics ?? null;
-      const meeting = memoryMeetings.find((m) => m.id === meetingId);
-      const transcript = memoryTranscripts.find((t) => t.meetingId === meetingId);
-      if (meeting && transcript) {
-        return computeAnalytics(meeting.id, meeting.durationMs, meeting.participants, transcript.turns);
-      }
-      return null;
-    },
+    () => SEED_MEETINGS.find((m) => m.meeting.id === meetingId)?.analytics ?? null,
   );
 }
 
@@ -229,30 +163,6 @@ export async function createHighlight(input: {
   return highlight;
 }
 
-export async function getUpcoming(): Promise<UpcomingMeeting[]> {
-  const items = await readOrSeed(
-    async () =>
-      (await (await db()).collection(COLLECTIONS.upcoming).find({}).toArray()).map(
-        (d) => clean<UpcomingMeeting>(d),
-      ),
-    () => SEED_UPCOMING,
-  );
-  return [...items].sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt));
-}
-
-export async function getAskThreads(): Promise<AskThread[]> {
-  return readOrSeed(
-    async () => {
-      const docs = await (await db())
-        .collection(COLLECTIONS.askThreads)
-        .find({})
-        .toArray();
-      return docs.map((d) => clean<AskThread>(d));
-    },
-    () => SEED_ASK_THREADS,
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Sharing
 // ---------------------------------------------------------------------------
@@ -286,34 +196,6 @@ export async function getShare(token: string): Promise<Share | null> {
   if (!hasMongo) return memoryShares.find((s) => s.token === token) ?? null;
   const doc = await (await db()).collection(COLLECTIONS.shares).findOne({ token });
   return doc ? clean<Share>(doc) : null;
-}
-
-/** Create a meeting and optional transcript when running without Mongo. */
-export async function createMeeting(input: {
-  meeting: Meeting;
-  transcript?: Transcript;
-  summaries?: Summary[];
-}): Promise<Meeting> {
-  if (hasMongo) {
-    await (await db()).collection(COLLECTIONS.meetings).insertOne({ ...input.meeting });
-    if (input.transcript) await (await db()).collection(COLLECTIONS.transcripts).insertOne({ ...input.transcript });
-    if (input.summaries && input.summaries.length > 0) {
-      await (await db()).collection(COLLECTIONS.summaries).insertMany(input.summaries.map((s) => ({ ...s })));
-    }
-  } else {
-    memoryMeetings.push(input.meeting);
-    if (input.transcript) memoryTranscripts.push(input.transcript);
-  }
-  return input.meeting;
-}
-
-export async function createTranscript(transcript: Transcript): Promise<Transcript> {
-  if (hasMongo) {
-    await (await db()).collection(COLLECTIONS.transcripts).insertOne({ ...transcript });
-  } else {
-    memoryTranscripts.push(transcript);
-  }
-  return transcript;
 }
 
 // ---------------------------------------------------------------------------
@@ -376,145 +258,76 @@ function buildSnippet(text: string, index: number, length: number): string {
     text.slice(index + length, to);
   return `${from > 0 ? '…' : ''}${body}${to < text.length ? '…' : ''}`;
 }
-const BOT_PARTICIPANT_COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', '#FECE5C', '#A78BFA', '#F472B6',
-];
-
-function initialsFor(name: string, fallbackIndex: number): string {
-  const initials = name
-    .split(/\s+/)
-    .map((w) => w[0])
-    .filter(Boolean)
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-  return initials || `S${fallbackIndex + 1}`;
-}
-
 /**
- * Save a meeting, transcript, summary and analytics from the bot in one shot.
+ * Files a finished recording: meeting, transcript, summaries and analytics.
  *
- * The bot already does all the work — it generates a stub transcript with
- * per-turn speaker names (see `backend/src/recording.ts`) and a stub summary
- * (`backend/src/transcription.ts`) before it ever calls this. This used to
- * discard almost all of it: the summary parameter went unused, real speaker
- * names were overwritten with "Speaker 1"/"Speaker 2", `templateIds` was left
- * empty so the summary panel had nothing to switch between, and analytics was
- * never computed for a bot-produced meeting at all. The net effect was that a
- * call the bot actually recorded opened to an empty Summary tab and a dead
- * talk-time ribbon — exactly the "what comes out the other side" moment the
- * product is supposed to prove out. This writes everything the bot handed us.
+ * Needs the database — a recording that only lives in one server process's
+ * memory would vanish on the next deploy and be invisible to every other
+ * instance, which is exactly the "mock" behaviour this replaces.
  */
-export async function saveBotTranscript(input: {
+export async function saveRecording(input: {
   meetingCode: string;
-  meetingUrl: string;
-  botName: string;
-  transcript: Transcript;
-  summary?: {
-    text: string;
-    keyPoints?: string[];
-    actionItems?: Array<{ task: string; owner?: string; dueDate?: string }>;
-  };
-  /** Real per-speaker names, keyed by speakerId — see `backend/src/transcription.ts`. */
-  speakerNames?: Record<string, string>;
-}): Promise<Meeting | null> {
-  const turns = input.transcript.turns;
-  const speakerIds = Array.from(new Set(turns.map((t) => t.speakerId)));
+  title?: string | null;
+  startedAt: string;
+  durationMs: number;
+  turns: TranscriptTurn[];
+  speakerNames: Map<string, string>;
+  audioContentType: string;
+  summarize: (
+    meetingId: string,
+    title: string,
+    participants: Participant[],
+  ) => Promise<Summary[]>;
+}): Promise<{ meeting: Meeting; summaries: Summary[]; analytics: MeetingAnalytics }> {
+  if (!hasMongo) throw new Error('Saving a recording needs MONGODB_URI.');
+  const database = await db();
 
-  const participants: Participant[] = speakerIds.map((id, i) => {
-    const name = input.speakerNames?.[id] ?? `Speaker ${i + 1}`;
-    return {
-      id,
-      name,
-      role: null,
-      org: null,
+  // A Meet code is reused (recurring meetings, retries), so it cannot be the id
+  // on its own. First recording keeps the bare code, later ones get -2, -3.
+  const taken = new Set(
+    (await database.collection(COLLECTIONS.meetings).find({}, { projection: { id: 1 } }).toArray()).map(
+      (d) => d.id as string,
+    ),
+  );
+  let meetingId = input.meetingCode;
+  for (let n = 2; taken.has(meetingId); n += 1) meetingId = `${input.meetingCode}-${n}`;
+
+  const speakerIds = Array.from(new Set(input.turns.map((t) => t.speakerId)));
+  const participants: Participant[] = speakerIds.map((id, i) =>
+    participant(id, input.speakerNames.get(id) ?? `Speaker ${i + 1}`, {
       isHost: i === 0,
-      isExternal: false,
-      color: BOT_PARTICIPANT_COLORS[i % BOT_PARTICIPANT_COLORS.length]!,
-      initials: initialsFor(name, i),
-    };
-  });
+      color: SPEAKER_COLORS[i % SPEAKER_COLORS.length]!,
+    }),
+  );
 
-  const durationMs = turns[turns.length - 1]?.endMs ?? 60_000;
-  // Only one template exists for a bot-produced summary today, but the field
-  // is what the summary-template switcher reads, so it must be populated for
-  // the switcher (and `summaries[0]`) to have anything to show.
-  const templateId = 'general';
+  const title = input.title?.trim() || `Meet ${input.meetingCode}`;
+  const summaries = await input.summarize(meetingId, title, participants);
 
   const meeting: Meeting = {
-    id: input.meetingCode,
-    title: `Bot Recording: ${input.meetingCode}`,
-    startedAt: new Date().toISOString(),
-    durationMs,
+    id: meetingId,
+    title,
+    startedAt: input.startedAt,
+    durationMs: input.durationMs,
     platform: 'meet',
     status: 'recorded',
     participants,
-    tags: ['bot-recorded', 'stubbed'],
-    audioUrl: null,
-    templateIds: input.summary ? [templateId] : [],
+    tags: ['bot-recorded'],
+    audioUrl: `/api/audio/${encodeURIComponent(meetingId)}`,
+    templateIds: summaries.map((s) => s.templateId),
     blurb:
-      input.summary?.text.split('\n').find((line) => line.trim().length > 0)?.trim() ??
-      `Recorded by ${input.botName} on ${formatMeetingDate(new Date().toISOString())}`,
+      summaries.find((s) => s.templateId === 'general')?.tldr ??
+      summaries[0]?.tldr ??
+      `Recorded on ${formatMeetingDate(input.startedAt)}`,
   };
+  const transcript: Transcript = { meetingId, turns: input.turns, language: 'en' };
+  const analytics = computeAnalytics(meetingId, input.durationMs, participants, input.turns);
 
-  const idByLowerName = new Map(participants.map((p) => [p.name.toLowerCase(), p.id]));
-
-  // Every claim in a summary is supposed to cite where in the recording it
-  // came from (see the `Citation` type in lib/types.ts). The stub summariser
-  // does not track which turn a key point or action item was pulled from, so
-  // the honest citation here is "somewhere in this call" — the full duration
-  // — rather than inventing a false timestamp for a point we can't actually
-  // locate.
-  const wholeCallCitation = { startMs: 0, endMs: durationMs };
-
-  const summaries: Summary[] = input.summary
-    ? [
-        {
-          meetingId: meeting.id,
-          templateId,
-          tldr: input.summary.text,
-          keyPoints: (input.summary.keyPoints ?? []).map((text) => ({
-            text,
-            citation: wholeCallCitation,
-          })),
-          actionItems: (input.summary.actionItems ?? []).map((item, i) => ({
-            id: `${meeting.id}-action-${i}`,
-            text: item.task,
-            ownerId: item.owner ? idByLowerName.get(item.owner.toLowerCase()) ?? null : null,
-            dueDate: item.dueDate ?? null,
-            citation: wholeCallCitation,
-          })),
-          topics: [],
-        },
-      ]
-    : [];
-
-  const analytics = computeAnalytics(meeting.id, durationMs, participants, turns);
-
-  // Always store in memory for instant local availability
-  memoryMeetings.unshift(meeting);
-  memoryTranscripts.unshift(input.transcript);
+  await database.collection(COLLECTIONS.meetings).insertOne({ ...meeting });
+  await database.collection(COLLECTIONS.transcripts).insertOne({ ...transcript });
   if (summaries.length > 0) {
-    memorySummaries.unshift(...summaries);
+    await database.collection(COLLECTIONS.summaries).insertMany(summaries.map((s) => ({ ...s })));
   }
+  await database.collection(COLLECTIONS.analytics).insertOne({ ...analytics });
 
-  if (!hasMongo) {
-    return meeting;
-  }
-
-  try {
-    const database = await db();
-    await database.collection(COLLECTIONS.meetings).insertOne({ ...meeting });
-    await database.collection(COLLECTIONS.transcripts).insertOne({ ...input.transcript });
-    if (summaries.length > 0) {
-      await database
-        .collection(COLLECTIONS.summaries)
-        .insertMany(summaries.map((s) => ({ ...s })));
-    }
-    await database.collection(COLLECTIONS.analytics).insertOne({ ...analytics });
-    return meeting;
-  } catch (err) {
-    console.error('Error saving bot transcript to mongo (persisted in memory):', err);
-    return meeting;
-  }
+  return { meeting, summaries, analytics };
 }

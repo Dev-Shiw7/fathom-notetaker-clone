@@ -16,7 +16,7 @@ import { MoonIcon, SunIcon } from '@/components/ui/Icon';
  * The matching no-flash script lives in the root layout; it must run before
  * first paint, which React cannot do.
  */
-export const THEME_KEY = 'recap-theme';
+export const THEME_KEY = 'recall-theme';
 
 type Choice = 'light' | 'dark' | null;
 

@@ -42,12 +42,11 @@ export const COLLECTIONS = {
   analytics: 'analytics',
   highlights: 'highlights',
   shares: 'shares',
-  askThreads: 'askThreads',
-  upcoming: 'upcoming',
   templates: 'templates',
   // The bot work queue and calendar sync. Unlike everything above, these have
   // no seed fallback: they are shared state between the deployed app and a bot
   // process on another machine, so they require a real database.
   botJobs: 'botJobs',
+  audioChunks: 'audioChunks',
   calendars: 'calendars',
 } as const;

@@ -86,6 +86,13 @@ export async function runWatch(options: WatchOptions): Promise<ExitCode> {
     );
     await report(options, job.id, { status: 'joining', lastMessage: 'Launching browser' });
 
+    // Set by runJoin's onResult once the app has filed the recording, so the
+    // job row can link straight to the call it produced.
+    let resultMeetingId: string | undefined;
+    // Status reports are fire-and-forget but must land in order, or a late
+    // "joining" could overwrite "recording" in the app's live view.
+    let pending: Promise<void> = Promise.resolve();
+
     try {
       const { url, code } = parseMeetingUrl(job.meetingUrl);
       const exitCode = await runJoin({
@@ -104,14 +111,26 @@ export async function runWatch(options: WatchOptions): Promise<ExitCode> {
         profileDir: options.profileDir,
         summaryChat: options.chatAnnounce,
         summaryDelayMs: options.summaryDelayMs,
+        title: job.title,
+        runnerToken: options.token,
+        onStatus: (status, lastMessage) => {
+          pending = pending.then(() =>
+            report(options, job.id, { status, lastMessage }),
+          );
+        },
+        onResult: (meetingId) => {
+          resultMeetingId = meetingId;
+        },
         // The bot posts results back to the same app it took the job from, so
         // the queue and the transcript sink can never drift apart.
         appUrl: options.apiUrl,
       });
 
+      await pending;
       await report(options, job.id, {
         status: exitCode === ExitCode.OK ? 'done' : 'failed',
         lastMessage: describeExit(exitCode),
+        ...(resultMeetingId ? { resultMeetingId } : {}),
       });
       process.stdout.write(`■ ${job.id} — ${describeExit(exitCode)}\n`);
     } catch (err) {
