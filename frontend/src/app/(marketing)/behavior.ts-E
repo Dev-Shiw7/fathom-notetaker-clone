@@ -37,9 +37,9 @@ $$('#kbdHint,.kbdx').forEach(k=>{k.textContent=isMac?'⌘K':'Ctrl K'});
    ===================================================================== */
 const DUR=58*60+12;
 const SP={
-  mara:{name:'Jaka',c:'#e08a5e'},
-  jonah:{name:'Lu Min',c:'#88b0a8'},
-  priya:{name:'Shiwani',c:'#cdb98c'},
+  mara:{name:'Mara',c:'#e08a5e'},
+  jonah:{name:'Jonah',c:'#88b0a8'},
+  priya:{name:'Priya',c:'#cdb98c'},
   theo:{name:'Theo',c:'#cf8f9a'}
 };
 const ORDER=['mara','jonah','priya','theo'];
@@ -443,8 +443,8 @@ const askAPI=(function(){
   sum.innerHTML=`
    <div class="sg"><h4>Decided</h4><div class="si" style="--c:${SP.jonah.c}"><span class="gl">${done}</span><span class="st">Show the decision before the process.</span></div></div>
    <div class="sg"><h4>Next</h4>
-     <button class="si" type="button" role="checkbox" aria-checked="false"><span class="bx">${check}</span><span class="st">Shiwani brings the revised flow to Thursday's review.</span></button>
-     <button class="si" type="button" role="checkbox" aria-checked="false"><span class="bx">${check}</span><span class="st">Lu Min writes up the post-launch metrics.</span></button></div>
+     <button class="si" type="button" role="checkbox" aria-checked="false"><span class="bx">${check}</span><span class="st">Priya brings the revised flow to Thursday's review.</span></button>
+     <button class="si" type="button" role="checkbox" aria-checked="false"><span class="bx">${check}</span><span class="st">Jonah writes up the post-launch metrics.</span></button></div>
    <div class="sg"><h4>Still open</h4><div class="si" style="--c:${SP.theo.c}"><span class="gl">${risk}</span><span class="st">Can the mid-quarter release absorb the change?</span></div>
      <div class="sum-foot"><span class="tally" id="tally">0 of 2 done</span><button class="send" id="send" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg><span>Share to #design-review</span></button></div></div>`;
   const groups=$$('.sg',sum),boxes=$$('[role=checkbox]',sum),tally=$('#tally'),send=$('#send');
