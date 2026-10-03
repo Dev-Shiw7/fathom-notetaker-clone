@@ -1,0 +1,44 @@
+# Render Blueprint: the web app and the bot runner.
+#
+# Deploy: Render dashboard -> New -> Blueprint -> pick this repo.
+# Then fill in the variables marked `sync: false` (see DEPLOY.md).
+services:
+  # --- The web app: UI, API, database access, Groq calls -------------------
+  - type: web
+    name: recall-web
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npm run build --workspace @notetaker/frontend
+    startCommand: npm run start --workspace @notetaker/frontend
+    healthCheckPath: /calls
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: notetaker
+      - key: GROQ_API_KEY
+        sync: false
+      # Shared secret between this app and the bot. Generated once; the bot
+      # reads the same value below, so the two can never drift apart.
+      - key: BOT_TOKEN
+        generateValue: true
+
+  # --- The bot runner: real Chrome on a virtual display ---------------------
+  # A call needs roughly 1-2 GB (Chrome plus a live WebRTC call), so this is
+  # not a free-tier workload. Background workers are paid-only on Render.
+  - type: worker
+    name: recall-bot
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    plan: standard
+    envVars:
+      - key: APP_URL
+        sync: false   # https://<recall-web's URL>, no trailing slash
+      - key: BOT_TOKEN
+        fromService:
+          type: web
+          name: recall-web
+          envVarKey: BOT_TOKEN

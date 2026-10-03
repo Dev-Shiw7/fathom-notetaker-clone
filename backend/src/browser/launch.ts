@@ -40,6 +40,8 @@ const CHROME_ARGS = [
   // Reduces the most obvious automation tell (navigator.webdriver).
   '--disable-blink-features=AutomationControlled',
   '--disable-features=IsolateOrigins,site-per-process',
+  // Containers give /dev/shm a tiny default size; Chrome crashes on it mid-call.
+  '--disable-dev-shm-usage',
   '--no-first-run',
   '--no-default-browser-check',
   '--window-size=1280,860',

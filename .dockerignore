@@ -1,0 +1,12 @@
+**/node_modules
+**/.next
+**/dist
+**/out
+.git
+.agent-logs
+.profiles
+**/.env
+**/.env.local
+frontend/*
+!frontend/package.json
+**/*.tsbuildinfo
