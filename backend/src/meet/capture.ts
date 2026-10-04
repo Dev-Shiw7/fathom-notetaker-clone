@@ -26,10 +26,24 @@ export interface SpeakerSample {
   name: string | null;
 }
 
+/** One stretch of speech as Meet's own captions showed it. */
+export interface CaptionLine {
+  /** Milliseconds from the start of the recording. */
+  t: number;
+  /** When this block was last seen changing; used to merge revisions, not sent on. */
+  lastT: number;
+  name: string;
+  text: string;
+}
+
 export interface CaptureResult {
   durationMs: number;
   mime: string;
   samples: SpeakerSample[];
+  /** What Meet's captions said: a transcript that does not depend on our audio. */
+  captions: CaptionLine[];
+  /** Loudest sample seen in the recorded mix (0..1); null if it could not be read. */
+  audioPeak: number | null;
   chunksUploaded: number;
   chunksFailed: number;
 }
@@ -56,17 +70,69 @@ const PAGE_HOOK = (sliceMs: number) => `(() => {
   const ctx = new AudioContext();
   const dest = ctx.createMediaStreamDestination();
   const tapped = new Set();
+  const keep = [];
+  const info = [];
 
-  const tap = (track) => {
+  // Level meter on the mixed audio, so a silent recording can be detected.
+  const mix = ctx.createGain();
+  mix.connect(dest);
+  const meter = ctx.createAnalyser();
+  mix.connect(meter);
+  const buf = new Float32Array(meter.fftSize);
+  let peak = 0;
+  setInterval(() => {
+    meter.getFloatTimeDomainData(buf);
+    for (let i = 0; i < buf.length; i++) peak = Math.max(peak, Math.abs(buf[i]));
+  }, 250);
+
+  const tap = (track, original) => {
     if (track.kind !== 'audio' || tapped.has(track.id)) return;
     tapped.add(track.id);
-    try { ctx.createMediaStreamSource(new MediaStream([track])).connect(dest); } catch (e) {}
+    const stream = new MediaStream([track]);
+    const rec = { id: track.id.slice(0, 8), muted: track.muted, state: track.readyState, unmutes: 0, mutes: 0, el: null, peak: 0 };
+    track.addEventListener('unmute', () => { rec.unmutes++; rec.muted = false; });
+    track.addEventListener('mute', () => { rec.mutes++; rec.muted = true; });
+    info.push(rec);
+    // Chrome hands Web Audio silence for a remote WebRTC track unless the
+    // stream is also attached to a media element. Muted, so the bot's machine
+    // does not play the call out loud.
+    try {
+      const el = new Audio();
+      el.muted = true;
+      el.srcObject = stream;
+      el.play().catch(() => {});
+      keep.push(el);
+      rec.el = el;
+    } catch (e) {}
+    // The stream object Meet itself received is the one Chrome ties the audio
+    // pipeline to, so hold it on a muted element as well.
+    try {
+      if (original) {
+        const el2 = new Audio();
+        el2.muted = true;
+        el2.srcObject = original;
+        el2.play().catch(() => {});
+        keep.push(el2);
+      }
+    } catch (e) {}
+    try {
+      const source = ctx.createMediaStreamSource(original || stream);
+      source.connect(mix);
+      // A meter per track, so the log shows which one carries sound.
+      const own = ctx.createAnalyser();
+      const ownBuf = new Float32Array(own.fftSize);
+      source.connect(own);
+      setInterval(() => {
+        own.getFloatTimeDomainData(ownBuf);
+        for (let i = 0; i < ownBuf.length; i++) rec.peak = Math.max(rec.peak, Math.abs(ownBuf[i]));
+      }, 250);
+    } catch (e) {}
   };
 
   const Original = window.RTCPeerConnection;
   const Wrapped = function (...args) {
     const pc = new Original(...args);
-    pc.addEventListener('track', (event) => tap(event.track));
+    pc.addEventListener('track', (event) => tap(event.track, event.streams && event.streams[0]));
     return pc;
   };
   Wrapped.prototype = Original.prototype;
@@ -107,6 +173,12 @@ const PAGE_HOOK = (sliceMs: number) => `(() => {
       });
     },
     tracks: () => tapped.size,
+    peak: () => peak,
+    diag: () => ({
+      ctx: ctx.state,
+      peak: Number(peak.toFixed(4)),
+      tracks: info.map((r) => ({ id: r.id, muted: r.muted, state: r.state, unmutes: r.unmutes, mutes: r.mutes, elPaused: r.el ? r.el.paused : null, peak: Number(r.peak.toFixed(4)) })),
+    }),
   };
 })();`;
 
@@ -122,6 +194,30 @@ function readSpeaker(): string | null {
   return name && name.length < 80 ? name : null;
 }
 
+/**
+ * Every caption block Meet currently shows, as {name, text}. Each block is
+ * found from its speaker avatar by climbing to the largest ancestor that still
+ * holds only that one avatar; its first line is the name, the rest the words.
+ */
+export function readCaptionRows(): Array<{ name: string; text: string }> {
+  const out: Array<{ name: string; text: string }> = [];
+  const region = document.querySelector('[role="region"][aria-label*="aption" i]');
+  if (!region) return out;
+  const imgs = region.querySelectorAll('img');
+  for (let i = 0; i < imgs.length; i += 1) {
+    let el: HTMLElement | null = imgs[i]!.parentElement;
+    while (el && el.parentElement && el.parentElement !== region && el.parentElement.querySelectorAll('img').length === 1) {
+      el = el.parentElement;
+    }
+    if (!el) continue;
+    const lines = (el.innerText || '').split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
+    const name = lines[0] ?? '';
+    if (!name || name.length > 80 || lines.length < 2) continue;
+    out.push({ name, text: lines.slice(1).join(' ') });
+  }
+  return out;
+}
+
 export class AudioCapture {
   private startedAt = 0;
   private samples: SpeakerSample[] = [];
@@ -130,6 +226,9 @@ export class AudioCapture {
   private uploads: Promise<void> = Promise.resolve();
   private uploaded = 0;
   private failed = 0;
+  private captions: CaptionLine[] = [];
+  private captionRowsSeen = 0;
+  private lastDiag = 0;
 
   private constructor(
     private readonly page: Page,
@@ -195,7 +294,69 @@ export class AudioCapture {
         .evaluate(readSpeaker)
         .then((name) => this.samples.push({ t: Date.now() - this.startedAt, name }))
         .catch(() => {});
+      this.page
+        .evaluate(readCaptionRows)
+        .then((rows) => this.ingestCaptions(rows, Date.now() - this.startedAt))
+        .catch(() => {});
+      if (Date.now() - this.lastDiag >= 30_000) {
+        this.lastDiag = Date.now();
+        void this.logDiagnostics('Audio diagnostics');
+      }
     }, SAMPLE_MS);
+  }
+
+  /**
+   * Folds the newest caption block into the running log. Meet rewrites a block
+   * in place as someone speaks: words are appended, punctuation changes ("Working
+   * on?" becomes "Working on education moment?"), and once the block is long its
+   * start scrolls off. So the block is matched to the log's tail by its opening
+   * words, ignoring case and punctuation, and the tail is *replaced* by the
+   * newer version rather than appended to.
+   */
+  private ingestCaptions(rows: Array<{ name: string; text: string }>, t: number): void {
+    const last = rows[rows.length - 1];
+    if (!last || !last.text) return;
+    this.captionRowsSeen += 1;
+
+    const words = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}\s']/gu, ' ').split(/\s+/).filter(Boolean);
+    const tail = this.captions[this.captions.length - 1];
+    if (tail && tail.name === last.name && t - tail.lastT < 8000) {
+      const a = words(tail.text);
+      const b = words(last.text);
+      const head = Math.min(2, a.length, b.length);
+      const sameStart = head > 0 && a.slice(0, head).join(' ') === b.slice(0, head).join(' ');
+      // Front trimmed: the new text opens somewhere inside the old one.
+      const probe = b.slice(0, 3).join(' ');
+      let cut = -1;
+      if (!sameStart && b.length >= 3) {
+        for (let i = 1; i + 3 <= a.length; i += 1) {
+          if (a.slice(i, i + 3).join(' ') === probe) {
+            cut = i;
+            break;
+          }
+        }
+      }
+      if (sameStart) {
+        tail.text = last.text;
+        tail.lastT = t;
+        return;
+      }
+      if (cut > 0) {
+        tail.text = `${tail.text.split(/\s+/).slice(0, cut).join(' ')} ${last.text}`;
+        tail.lastT = t;
+        return;
+      }
+    }
+    if (this.captions.length < 5000) this.captions.push({ t, lastT: t, name: last.name, text: last.text });
+  }
+
+  private async logDiagnostics(message: string): Promise<void> {
+    if (this.page.isClosed()) return;
+    const diag = await this.page.evaluate(() => (window as any).__recall?.diag?.()).catch(() => null);
+    this.options.log.emit('warn', {
+      message,
+      detail: JSON.stringify({ ...diag, captionBlocksSeen: this.captionRowsSeen, captionLines: this.captions.length }),
+    });
   }
 
   /** Turns captions on once, by their accessible name, falling back to Meet's `c` shortcut. */
@@ -226,6 +387,17 @@ export class AudioCapture {
     }
     await this.uploads;
 
+    await this.logDiagnostics('Audio diagnostics (final)');
+    const peak = this.page.isClosed()
+      ? null
+      : await this.page.evaluate(() => (window as any).__recall?.peak?.() as number).catch(() => null);
+    if (peak !== null && peak < 0.001) {
+      this.options.log.emit('warn', {
+        message: 'Recording is silent',
+        detail: `Peak level ${peak} over the whole call: the remote audio was not captured`,
+      });
+    }
+
     const named = new Set(this.samples.map((s) => s.name).filter(Boolean));
     if (named.size === 0) {
       this.options.log.emit('selector.miss', {
@@ -240,6 +412,8 @@ export class AudioCapture {
       durationMs: Date.now() - this.startedAt,
       mime: this.mime,
       samples: this.samples,
+      captions: this.captions,
+      audioPeak: peak ?? null,
       chunksUploaded: this.uploaded,
       chunksFailed: this.failed,
     };

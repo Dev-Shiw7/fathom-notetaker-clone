@@ -1541,3 +1541,107 @@ h1,
   font-size: 22px;
   text-transform: none;
 }
+
+
+/* ---------------------------------------------------------------------------
+   Send-the-bot card and bot activity list (settings page)
+   ------------------------------------------------------------------------ */
+.funky-card {
+  background: conic-gradient(from var(--spin, 0deg), var(--brand-from), var(--brand-to), var(--gold), var(--brand-from));
+  animation: funky-spin 6s linear infinite;
+  box-shadow: var(--shadow-lg);
+}
+@property --spin {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes funky-spin {
+  to {
+    --spin: 360deg;
+  }
+}
+.funky-blob {
+  position: absolute;
+  right: -60px;
+  top: -70px;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--accent-soft), transparent 70%);
+  filter: blur(8px);
+  animation: funky-drift 9s ease-in-out infinite alternate;
+  pointer-events: none;
+}
+@keyframes funky-drift {
+  to {
+    transform: translate(-40px, 30px) scale(1.15);
+  }
+}
+.funky-bot {
+  background: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+  animation: funky-bob 3.2s ease-in-out infinite;
+}
+@keyframes funky-bob {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-5px) rotate(3deg); }
+}
+.funky-float {
+  animation: funky-bob 3.2s ease-in-out infinite;
+}
+.funky-text {
+  background: linear-gradient(90deg, var(--brand-from), var(--brand-to));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.funky-send {
+  background: linear-gradient(135deg, var(--brand-from), var(--brand-to));
+  box-shadow: 0 6px 18px -6px var(--accent-ring);
+}
+.funky-send.is-flying .funky-plane,
+.funky-plane {
+  display: inline-flex;
+}
+.funky-send:hover:not(:disabled) .funky-plane {
+  animation: funky-fly 0.7s var(--ease);
+}
+@keyframes funky-fly {
+  0% { transform: translate(0, 0); }
+  45% { transform: translate(14px, -10px) scale(0.8); opacity: 0; }
+  55% { transform: translate(-14px, 10px) scale(0.8); opacity: 0; }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
+.funky-pop {
+  animation: funky-pop 0.25s var(--ease);
+}
+@keyframes funky-pop {
+  from { transform: scale(0.6); opacity: 0; }
+}
+.funky-dot {
+  animation: funky-pulse 1.4s ease-out infinite;
+}
+@keyframes funky-pulse {
+  0% { box-shadow: 0 0 0 0 var(--accent-ring); }
+  100% { box-shadow: 0 0 0 9px transparent; }
+}
+.funky-row {
+  transition: transform var(--fast) var(--ease), border-color var(--fast);
+}
+.funky-row:hover {
+  transform: translateX(3px);
+  border-color: var(--border-strong);
+}
+/* Height animation without measuring: a grid row going 0fr -> 1fr. */
+.funky-collapse {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.28s var(--ease);
+}
+.funky-collapse[data-open='true'] {
+  grid-template-rows: 1fr;
+}
+@media (prefers-reduced-motion: reduce) {
+  .funky-card, .funky-blob, .funky-bot, .funky-float, .funky-dot { animation: none; }
+  .funky-collapse { transition: none; }
+}

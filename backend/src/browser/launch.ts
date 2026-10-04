@@ -45,6 +45,11 @@ const CHROME_ARGS = [
   '--no-first-run',
   '--no-default-browser-check',
   '--window-size=1280,860',
+  // A bot window is usually covered by other windows. Without these, Chrome
+  // throttles a hidden page: screenshots time out and timers stall mid-call.
+  '--disable-renderer-backgrounding',
+  '--disable-backgrounding-occluded-windows',
+  '--disable-background-timer-throttling',
 ];
 
 /**

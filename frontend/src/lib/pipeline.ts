@@ -31,6 +31,13 @@ export interface SpeakerSample {
   name: string | null;
 }
 
+/** One stretch of speech as the meeting platform's own captions showed it. */
+export interface CaptionLine {
+  t: number;
+  name: string;
+  text: string;
+}
+
 export interface FinalizeInput {
   sessionId: string;
   meetingCode: string;
@@ -39,6 +46,10 @@ export interface FinalizeInput {
   durationMs: number;
   mime: string;
   samples: SpeakerSample[];
+  /** What Meet's captions said; the fallback when the audio gives no transcript. */
+  captions?: CaptionLine[];
+  /** The bot measured the recorded mix and found it silent. */
+  audioSilent?: boolean;
 }
 
 const slug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'unknown';
@@ -99,26 +110,67 @@ export function buildTurns(segments: SttSegment[], samples: SpeakerSample[]) {
   return { turns, speakerNames };
 }
 
+/**
+ * A transcript built from Meet's captions. Used when the audio could not be
+ * captured or transcribed: Meet heard the call even if the bot's recording
+ * did not, and the captions carry real speaker names. Each line runs until the
+ * next one starts, capped so a long silence is not credited to one speaker.
+ */
+export function buildTurnsFromCaptions(captions: CaptionLine[]) {
+  const speakerNames = new Map<string, string>();
+  const turns: TranscriptTurn[] = [];
+  const sorted = [...captions].sort((a, b) => a.t - b.t);
+  sorted.forEach((line, i) => {
+    const speakerId = `spk-${slug(line.name)}`;
+    speakerNames.set(speakerId, line.name);
+    const next = sorted[i + 1];
+    const words = line.text.split(/\s+/).length;
+    const spoken = Math.max(1500, Math.round((words / 2.5) * 1000));
+    const endMs = Math.max(line.t + 500, Math.min(next ? next.t : Infinity, line.t + spoken));
+    turns.push({ id: `turn-${turns.length + 1}`, speakerId, startMs: line.t, endMs, text: line.text, audioUrl: null });
+  });
+  return { turns, speakerNames };
+}
+
 export async function finalizeRecording(input: FinalizeInput): Promise<{
   meeting: Meeting;
   summaries: Summary[];
   failedTemplates: string[];
 }> {
+  const captions = input.captions ?? [];
   const audio = await assembleChunks(input.sessionId);
-  if (!audio || audio.length < 2_000) {
-    throw new PipelineError('No audio was captured from the meeting.');
-  }
-  if (audio.length > MAX_AUDIO_BYTES) {
-    throw new PipelineError(
-      `Recording is ${(audio.length / 1048576).toFixed(1)} MB, over the ${MAX_AUDIO_BYTES / 1048576} MB transcription limit.`,
-      413,
-    );
+  const hasAudio = Boolean(audio && audio.length >= 2_000);
+
+  let turns: TranscriptTurn[] = [];
+  let speakerNames = new Map<string, string>();
+  let audioProblem: string | null = hasAudio ? null : 'No audio was captured from the meeting.';
+
+  // A silent mix is not sent to Whisper: it would only invent "Thank you."
+  if (hasAudio && input.audioSilent) {
+    audioProblem = 'The recorded audio was silent.';
+  } else if (hasAudio) {
+    try {
+      if (audio!.length > MAX_AUDIO_BYTES) {
+        throw new PipelineError(
+          `Recording is ${(audio!.length / 1048576).toFixed(1)} MB, over the ${MAX_AUDIO_BYTES / 1048576} MB transcription limit.`,
+          413,
+        );
+      }
+      const ext = input.mime.includes('mp4') ? 'm4a' : 'webm';
+      const segments = await transcribe(audio!, `${input.meetingCode}.${ext}`, input.mime);
+      ({ turns, speakerNames } = buildTurns(segments, input.samples));
+      if (turns.length === 0) audioProblem = 'No speech was detected in the recording.';
+    } catch (err) {
+      // With captions in hand a failed transcription is not fatal.
+      if (captions.length === 0) throw err;
+      audioProblem = (err as Error).message;
+    }
   }
 
-  const ext = input.mime.includes('mp4') ? 'm4a' : 'webm';
-  const segments = await transcribe(audio, `${input.meetingCode}.${ext}`, input.mime);
-  const { turns, speakerNames } = buildTurns(segments, input.samples);
-  if (turns.length === 0) throw new PipelineError('No speech was detected in the recording.');
+  if (turns.length === 0 && captions.length > 0) {
+    ({ turns, speakerNames } = buildTurnsFromCaptions(captions));
+  }
+  if (turns.length === 0) throw new PipelineError(audioProblem ?? 'No speech was detected in the recording.');
 
   const durationMs = Math.max(input.durationMs, turns[turns.length - 1]!.endMs);
   let failedTemplates: string[] = [];
@@ -130,7 +182,7 @@ export async function finalizeRecording(input: FinalizeInput): Promise<{
     durationMs,
     turns,
     speakerNames,
-    audioContentType: input.mime,
+    audioContentType: hasAudio ? input.mime : null,
     summarize: async (meetingId, title, participants) => {
       const result = await summarizeMeeting({ meetingId, title, participants, turns });
       failedTemplates = result.failed;
@@ -138,7 +190,7 @@ export async function finalizeRecording(input: FinalizeInput): Promise<{
     },
   });
 
-  await storeAudio(saved.meeting.id, audio, input.mime);
+  if (hasAudio) await storeAudio(saved.meeting.id, audio!, input.mime);
   await dropChunks(input.sessionId);
   return { meeting: saved.meeting, summaries: saved.summaries, failedTemplates };
 }

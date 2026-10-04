@@ -272,7 +272,8 @@ export async function saveRecording(input: {
   durationMs: number;
   turns: TranscriptTurn[];
   speakerNames: Map<string, string>;
-  audioContentType: string;
+  /** Null when there is no recording to play back (a captions-only transcript). */
+  audioContentType: string | null;
   summarize: (
     meetingId: string,
     title: string,
@@ -312,7 +313,7 @@ export async function saveRecording(input: {
     status: 'recorded',
     participants,
     tags: ['bot-recorded'],
-    audioUrl: `/api/audio/${encodeURIComponent(meetingId)}`,
+    audioUrl: input.audioContentType ? `/api/audio/${encodeURIComponent(meetingId)}` : null,
     templateIds: summaries.map((s) => s.templateId),
     blurb:
       summaries.find((s) => s.templateId === 'general')?.tldr ??

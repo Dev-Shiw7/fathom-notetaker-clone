@@ -13,6 +13,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import { COLLECTIONS, db, hasMongo } from './mongo';
+import { visibleSince } from './retention';
 import type { BotJob, BotJobStatus } from './types';
 
 /** Thrown when the queue is used without a database configured. */
@@ -146,7 +147,7 @@ export async function listJobs(limit = 25): Promise<BotJob[]> {
   if (!hasMongo) return [];
   const docs = await (await db())
     .collection(COLLECTIONS.botJobs)
-    .find({})
+    .find({ createdAt: { $gte: visibleSince() } })
     .sort({ createdAt: -1 })
     .limit(limit)
     .toArray();

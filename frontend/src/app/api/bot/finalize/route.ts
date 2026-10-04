@@ -8,7 +8,7 @@
  * function-timeout ceiling on a Node host.
  */
 import { isAuthorisedRunner } from '@/lib/jobs';
-import { PipelineError, finalizeRecording, type SpeakerSample } from '@/lib/pipeline';
+import { PipelineError, finalizeRecording, type CaptionLine, type SpeakerSample } from '@/lib/pipeline';
 import { GroqError, groqConfigured } from '@/lib/groq';
 import { AudioUnavailableError } from '@/lib/audio';
 
@@ -39,6 +39,18 @@ export async function POST(request: Request) {
           }))
       : [];
 
+    const captions: CaptionLine[] = Array.isArray(body.captions)
+      ? body.captions
+          .filter((c: { t?: unknown; name?: unknown; text?: unknown }) =>
+            Number.isFinite(Number(c?.t)) && typeof c?.name === 'string' && typeof c?.text === 'string' && c.text.trim(),
+          )
+          .map((c: { t: number; name: string; text: string }) => ({
+            t: Number(c.t),
+            name: c.name.trim(),
+            text: c.text.trim(),
+          }))
+      : [];
+
     const { meeting, summaries, failedTemplates } = await finalizeRecording({
       sessionId,
       meetingCode,
@@ -47,6 +59,8 @@ export async function POST(request: Request) {
       durationMs: Number(body.durationMs) || 0,
       mime: typeof body.mime === 'string' ? body.mime : 'audio/webm',
       samples,
+      captions,
+      audioSilent: body.audioSilent === true,
     });
 
     const general = summaries.find((s) => s.templateId === 'general') ?? summaries[0];

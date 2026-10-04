@@ -33,6 +33,8 @@ import {
 
 /** How often the in-call monitor polls. */
 const MONITOR_INTERVAL_MS = 2_000;
+/** How long a drop to "only the bot" must hold before the bot believes the meeting is over. */
+const ALONE_GRACE_MS = 20_000;
 
 export async function runJoin(options: JoinOptions): Promise<ExitCode> {
   const startedAt = new Date();
@@ -238,7 +240,7 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
     const captured = await capture.stop();
     log.emit('warn', {
       message: 'Recording stopped',
-      detail: `${captured.chunksUploaded} slices uploaded, ${captured.chunksFailed} failed, ${captured.samples.length} speaker samples`,
+      detail: `${captured.chunksUploaded} slices uploaded, ${captured.chunksFailed} failed, ${captured.samples.length} speaker samples, ${captured.captions.length} caption lines`,
     });
 
     // The app transcribes, summarises and files the meeting. Waiting here is
@@ -246,7 +248,7 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
     // the bot has to hold the result before it leaves.
     let summary: MeetingSummary | null = null;
     let meetingId: string | null = null;
-    if (captured.chunksUploaded > 0) {
+    if (captured.chunksUploaded > 0 || captured.captions.length > 0) {
       try {
         const response = await fetch(`${apiUrl}/api/bot/finalize`, {
           method: 'POST',
@@ -262,6 +264,8 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
             durationMs: captured.durationMs,
             mime: captured.mime,
             samples: captured.samples,
+            captions: captured.captions,
+            audioSilent: captured.audioPeak !== null && captured.audioPeak < 0.001,
           }),
           signal: AbortSignal.timeout(10 * 60_000),
         });
@@ -415,9 +419,13 @@ async function monitorCall(
       previousCount = count;
 
       // Someone else was in the call and the count just dropped to "only the
-      // bot" — that's the meeting ending, unambiguously. No reason to sit out
-      // the full aloneTimeoutMs for a transition this clear.
-      if (wasAccompanied && count === 1) return 'ALONE';
+      // bot". That is usually the meeting ending, but a reconnect or a People
+      // badge that briefly misreads looks identical, and leaving ends the
+      // recording for good. So wait out a short grace period rather than leave
+      // at once; if the count recovers, `aloneSince` is cleared below.
+      if (wasAccompanied && count === 1) {
+        aloneSince = Date.now() - Math.max(0, options.aloneTimeoutMs - ALONE_GRACE_MS);
+      }
     }
 
     // `null` means unreadable, not empty — treating it as "alone" would make
