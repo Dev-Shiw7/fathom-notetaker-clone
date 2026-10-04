@@ -21,40 +21,40 @@
   color-scheme: dark;
 
   /* Surfaces, back to front. */
-  --bg: #14100e;
-  --bg-raised: #1b1512;
-  --bg-panel: #1b1512;
-  --bg-hover: #241c18;
-  --bg-sunken: #0f0b09;
+  --bg: #071317;
+  --bg-raised: #0d1d23;
+  --bg-panel: #0d1d23;
+  --bg-hover: #14272f;
+  --bg-sunken: #050e11;
 
   /* Text, strongest to faintest. */
   --text: #f0e9de;
-  --text-muted: #bcaea2;
-  --text-faint: #9a8b7f;
+  --text-muted: #b0c0c2;
+  --text-faint: #869a9d;
 
   /* Lines. */
-  --border: rgba(239, 232, 221, 0.1);
-  --border-strong: rgba(239, 232, 221, 0.2);
+  --border: rgba(239, 232, 221, 0.09);
+  --border-strong: rgba(239, 232, 221, 0.17);
 
   /* Brand. */
-  --accent: #e08a5e;
-  --accent-hover: #eb9a70;
-  --accent-soft: rgba(224, 138, 94, 0.14);
-  --accent-ring: rgba(224, 138, 94, 0.5);
+  --accent: #f0c987;
+  --accent-hover: #f7d7a1;
+  --accent-soft: rgba(240, 201, 135, 0.14);
+  --accent-ring: rgba(240, 201, 135, 0.5);
   --accent-contrast: #1b120d;
   /* The logo mark and every "AI" affordance share this ramp. */
-  --brand-from: #e08a5e;
-  --brand-to: #cf8f9a;
+  --brand-from: #f0c987;
+  --brand-to: #ff8e7a;
 
   /* Status. */
-  --positive: #88b0a8;
-  --positive-soft: rgba(136, 176, 168, 0.16);
-  --warning: #cdb98c;
-  --warning-soft: rgba(205, 185, 140, 0.16);
-  --danger: #ee6a45;
-  --danger-soft: rgba(238, 106, 69, 0.14);
+  --positive: #62d6cf;
+  --positive-soft: rgba(98, 214, 207, 0.16);
+  --warning: #f0c987;
+  --warning-soft: rgba(240, 201, 135, 0.16);
+  --danger: #ff8e7a;
+  --danger-soft: rgba(255, 142, 122, 0.14);
   /* The points/star pill in the app bar. */
-  --gold: #cdb98c;
+  --gold: #f0c987;
 
   /* Shape & depth. */
   --radius: 12px;
@@ -75,7 +75,7 @@
   --ink-2: #ffffff;
   --muted: var(--text-muted);
   --accent-dim: var(--accent-soft);
-  --accent-2: #cf8f9a;
+  --accent-2: #b8a2ff;
   --good: var(--positive);
   --good-dim: var(--positive-soft);
 }
@@ -97,16 +97,16 @@
   --border: #d9cebf;
   --border-strong: #bfb2a0;
 
-  --accent: #b4552a;
-  --accent-hover: #9a4721;
-  --accent-soft: rgba(180, 85, 42, 0.12);
-  --accent-ring: rgba(180, 85, 42, 0.4);
+  --accent: #8f6410;
+  --accent-hover: #765008;
+  --accent-soft: rgba(143, 100, 16, 0.12);
+  --accent-ring: rgba(143, 100, 16, 0.4);
   --accent-contrast: #ffffff;
-  --brand-from: #c8643a;
-  --brand-to: #b4707a;
+  --brand-from: #b8841a;
+  --brand-to: #d4684f;
 
-  --positive: #3f7d72;
-  --positive-soft: #dde9e5;
+  --positive: #2c7d78;
+  --positive-soft: #d9ece9;
   --warning: #8a6d24;
   --warning-soft: #efe6cf;
   --danger: #c4442a;
@@ -118,7 +118,7 @@
   --shadow-lg: 0 18px 44px -12px rgba(18, 20, 28, 0.26);
 
   --ink-2: #000000;
-  --accent-2: #b4707a;
+  --accent-2: #6f5bd6;
 }
 
 /* Expose the semantic roles to Tailwind so `bg-panel` / `text-muted` resolve
@@ -623,10 +623,10 @@ input:disabled {
   padding: 12px;
   background: radial-gradient(
       120% 120% at 20% 0%,
-      rgba(224, 138, 94, 0.18) 0%,
+      color-mix(in srgb, var(--accent) 18%, transparent) 0%,
       transparent 62%
     ),
-    linear-gradient(140deg, #241c18, #120d0b);
+    linear-gradient(140deg, var(--bg-hover), var(--bg-sunken));
 }
 
 /* Speaker tiles down the right edge, as a call recording shows them. */
@@ -1023,10 +1023,10 @@ input:disabled {
 .player {
   background: radial-gradient(
       120% 120% at 50% 0%,
-      rgba(224, 138, 94, 0.2) 0%,
+      color-mix(in srgb, var(--accent) 20%, transparent) 0%,
       transparent 60%
     ),
-    linear-gradient(140deg, #241c18, #120d0b);
+    linear-gradient(140deg, var(--bg-hover), var(--bg-sunken));
   border-radius: var(--radius);
   height: 100%;
   position: relative;

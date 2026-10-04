@@ -37,10 +37,10 @@ $$('#kbdHint,.kbdx').forEach(k=>{k.textContent=isMac?'⌘K':'Ctrl K'});
    ===================================================================== */
 const DUR=58*60+12;
 const SP={
-  mara:{name:'Jaka',c:'#e08a5e'},
-  jonah:{name:'Lu Min',c:'#88b0a8'},
-  priya:{name:'Shiwani',c:'#cdb98c'},
-  theo:{name:'Theo',c:'#cf8f9a'}
+  mara:{name:'Jaka',c:'#f0c987'},
+  jonah:{name:'Lu Min',c:'#62d6cf'},
+  priya:{name:'Shiwani',c:'#b8a2ff'},
+  theo:{name:'Theo',c:'#ff8e7a'}
 };
 const ORDER=['mara','jonah','priya','theo'];
 const COL=ORDER.map(k=>SP[k].c);
@@ -229,7 +229,7 @@ $$('.cell').forEach(c=>c.addEventListener('pointermove',e=>{const r=c.getBoundin
     clock.textContent=mmss(t);
     const c=MOMENTS.filter(m=>m.t<=t).length;if(c!==lastMc){mc.textContent=c;lastMc=c}
     const i=lineAt(t);if(i===li)return;li=i;
-    if(i<0){tl.forEach(e=>e.classList.remove('on'));cap.innerHTML=`<div class="cap-top">The room is filling up</div><p class="q" style="color:var(--bone3)">Waiting for the first words…</p>`;hero.style.setProperty('--glow','#e08a5e');return}
+    if(i<0){tl.forEach(e=>e.classList.remove('on'));cap.innerHTML=`<div class="cap-top">The room is filling up</div><p class="q" style="color:var(--bone3)">Waiting for the first words…</p>`;hero.style.setProperty('--glow','#f0c987');return}
     const l=LINES[i],sp=SP[l.sp];
     tl.forEach(e=>e.classList.toggle('on',e.dataset.sp===l.sp));
     hero.style.setProperty('--glow',sp.c);
@@ -299,7 +299,7 @@ const distill=(function(){
    ===================================================================== */
 const DEMO_Q=['What is blocking the Meridian deal?','Who owns the Kubernetes migration?','Where are we losing to Datadog?','What are the Q4 engineering priorities?'];
 const escHtml=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const SRC_COLORS=['#e08a5e','#88b0a8','#cdb98c','#cf8f9a','#a89ac9','#6f9bb3'];
+const SRC_COLORS=['#f0c987','#62d6cf','#b8a2ff','#ff8e7a','#6cb6ff','#a3e66b'];
 const srcColor=name=>SRC_COLORS[[...name].reduce((a,c)=>a+c.charCodeAt(0),0)%SRC_COLORS.length];
 
 /* Real answers: POST /api/ask with demo:true, which is limited to the two sample calls. */
@@ -355,7 +355,7 @@ const askAPI=(function(){
   let sp=0,last=0;
   function set(i){
     sp=i;gz.innerHTML='';
-    ps.forEach((g,j)=>{const on=j===i;g.style.transform=on?'translateY(-9px)':'none';$('.b',g).setAttribute('opacity',on?.95:.25);$('.h',g).setAttribute('opacity',on?1:.35);$('.nm',g).style.fill=on?'#1b120d':'#9a8b7f'});
+    ps.forEach((g,j)=>{const on=j===i;g.style.transform=on?'translateY(-9px)':'none';$('.b',g).setAttribute('opacity',on?.95:.25);$('.h',g).setAttribute('opacity',on?1:.35);$('.nm',g).style.fill=on?'#1b120d':'#869a9d'});
     ORDER.forEach((k,j)=>{if(j===i)return;const x1=xs[j],x2=xs[i],mx=(x1+x2)/2,lift=Math.abs(x1-x2)*.34+26;
       const pa=document.createElementNS('http://www.w3.org/2000/svg','path');pa.setAttribute('class','gaze');pa.setAttribute('d',`M${x1},62 Q${mx},${62-lift} ${x2},${62}`);pa.setAttribute('stroke',SP[ORDER[i]].c);gz.appendChild(pa)});
     stat.style.setProperty('--c',SP[ORDER[i]].c);stat.innerHTML=`<i></i>${SP[ORDER[i]].name} has the floor. Everyone else is looking.`;
@@ -386,7 +386,7 @@ const askAPI=(function(){
       const cy=laneH*(i+.5);
       ctx.globalAlpha=.1;ctx.fillStyle='#f0e9de';ctx.fillRect(x0,cy-.5,w-x0-8,1);
       ctx.globalAlpha=act[i]?1:.7;ctx.fillStyle=COL[i];
-      if(w>=420){ctx.beginPath();ctx.arc(14,cy,4,0,7);ctx.fill();ctx.font='500 12px '+SANS;ctx.fillStyle=act[i]?'#f0e9de':'#9a8b7f';ctx.globalAlpha=1;ctx.fillText(SP[ORDER[i]].name,26,cy+4)}
+      if(w>=420){ctx.beginPath();ctx.arc(14,cy,4,0,7);ctx.fill();ctx.font='500 12px '+SANS;ctx.fillStyle=act[i]?'#f0e9de':'#869a9d';ctx.globalAlpha=1;ctx.fillText(SP[ORDER[i]].name,26,cy+4)}
       else{ctx.beginPath();ctx.arc(8,cy,4,0,7);ctx.fill()}
       ctx.fillStyle=COL[i];
       const hs=hist[i],off=cnt-hs.length;
@@ -460,7 +460,7 @@ const askAPI=(function(){
   const stage=$('#mStage'),cvBox=$('#mCv'),cv=$('canvas',cvBox),ctx=cv.getContext('2d'),btns=$$('.m-step',stage),lanesEl=$('#mLanes'),call=$('#mCall');
   const NB=128,x0f=w=>w<600?26:104;
   const st=canvasFit(cv,s=>{lanesEl.innerHTML=ORDER.map((k,i)=>`<span style="top:${(i+1)/5*100}%;--c:${SP[k].c}"><i></i>${SP[k].name}</span>`).join('')});
-  const neutral=hex('#a89a8e');
+  const neutral=hex('#9fb2b3');
   const bars=Array.from({length:NB},(_,i)=>{const idx=Math.floor((i+.5)/NB*N);return{a:AMP[idx],s:SPK[idx],time:(i+.5)/NB*DUR,y:.5,h:.2,al:.8,c:neutral.slice(),step:0}});
   let step=0,T0=0,prog=0,auto=!reduce,hold=0;
   const decIdx=MOMENTS.findIndex(m=>m.k==='decision'),dec=MOMENTS[decIdx];
