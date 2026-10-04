@@ -34,7 +34,7 @@ import {
 /** How often the in-call monitor polls. */
 const MONITOR_INTERVAL_MS = 2_000;
 /** How long a drop to "only the bot" must hold before the bot believes the meeting is over. */
-const ALONE_GRACE_MS = 20_000;
+const ALONE_GRACE_MS = 8_000;
 
 export async function runJoin(options: JoinOptions): Promise<ExitCode> {
   const startedAt = new Date();
@@ -215,10 +215,13 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
     setState('IN_CALL');
     options.onStatus?.('recording', 'In the call');
     const joinedAt = Date.now();
-    await artifacts.screenshot(page, 'in-call');
 
+    // Say hello first and photograph the call afterwards: Meet hides its
+    // controls (the chat button included) a few seconds after you stop
+    // touching it, so anything slow before this point can lose the chat.
     if (options.chatAnnounce) {
-      if (await announce(page, options.consentMessage)) {
+      const consent = await announce(page, options.consentMessage);
+      if (consent.ok) {
         log.emit('consent.disclosed', {
           channel: 'chat',
           message: options.consentMessage,
@@ -226,10 +229,12 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
       } else {
         log.emit('warn', {
           message: 'Consent message could not be posted to chat',
-          detail: 'Bot is still named as a notetaker in the participant list',
+          detail: `${consent.why ?? 'unknown reason'}. The bot is still named "${options.botName}" in the participant list.`,
         });
       }
     }
+
+    await artifacts.screenshot(page, 'in-call');
 
     await capture.start();
 
@@ -328,7 +333,7 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
             ? `${apiUrl}/calls/${encodeURIComponent(meetingId)}`
             : undefined,
       });
-      const { sent, total } = await postSummary(page, lines);
+      const { sent, total, why } = await postSummary(page, lines);
 
       if (sent === total) {
         log.emit('summary.delivered', { channel: 'chat', messages: sent });
@@ -336,7 +341,11 @@ export async function runJoin(options: JoinOptions): Promise<ExitCode> {
         // Partial delivery is a real outcome, not a success with a caveat.
         log.emit('warn', {
           message: 'Summary was not fully posted to chat',
-          detail: `Sent ${sent} of ${total} messages`,
+          detail: `Sent ${sent} of ${total} messages${why ? `: ${why}` : ''}${
+            reason === 'MEETING_ENDED' || reason === 'REMOVED'
+              ? ` (the call had already ended, and chat can only be reached from inside it)`
+              : ''
+          }`,
         });
       }
     }

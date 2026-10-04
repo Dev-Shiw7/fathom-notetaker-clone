@@ -30,7 +30,10 @@ export class ArtifactStore {
       await page.screenshot({
         path: join(this.screenshotDir, name),
         fullPage: false,
-        timeout: 15_000,
+        // A screenshot of a page Chrome is not painting (a hidden or off-screen
+        // window) hangs until this timeout. Keep it short: three of them used
+        // to hold the bot for 45 seconds, and chat only works shortly after joining.
+        timeout: 4_000,
       });
       return join('screenshots', name);
     } catch (err) {

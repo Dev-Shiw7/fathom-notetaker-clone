@@ -62,7 +62,7 @@ export type Command =
   | { kind: 'help' };
 
 export const DEFAULTS = {
-  botName: 'Notetaker',
+  botName: 'Recall',
   outDir: 'out',
   admissionTimeoutSec: 300,
   aloneTimeoutSec: 120,
@@ -70,11 +70,11 @@ export const DEFAULTS = {
   /** How often a runner asks the queue for work. */
   pollIntervalSec: 10,
   consentMessage:
-    "Hi! I'm Notetaker, an AI assistant that takes notes for this meeting. " +
+    "Hi! I'm Recall, an AI assistant that takes notes for this meeting. " +
     'This meeting is being transcribed. Ask the host to remove me if you prefer not to be recorded.',
   // Long enough to read as "after the meeting", short enough that the bot is
   // not sitting in an empty call burning a browser process.
-  summaryDelaySec: 120,
+  summaryDelaySec: 10,
 } as const;
 
 const MEET_CODE_PATTERN = /^[a-z]{3}-[a-z]{4}-[a-z]{3}$/;

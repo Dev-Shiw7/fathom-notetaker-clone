@@ -25,7 +25,7 @@ export async function POST(request: Request) {
 
     const job = await enqueueJob({
       meetingUrl,
-      botName: body.botName ?? 'Notetaker',
+      botName: body.botName ?? 'Recall',
       title: body.title ?? null,
       source: 'manual',
     });

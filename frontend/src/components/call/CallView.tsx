@@ -292,7 +292,7 @@ export function CallView({
         body: JSON.stringify({
           meetingId: meeting.id,
           meetingUrl: `https://meet.google.com/${meeting.id}`,
-          botName: 'Recall Notetaker',
+          botName: 'Recall',
         }),
       });
 

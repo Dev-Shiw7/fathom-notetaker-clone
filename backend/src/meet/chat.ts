@@ -24,22 +24,40 @@ import {
  * messages rather than one block. Returns how many were actually sent, so a
  * partial delivery is reportable instead of rounding up to success.
  */
-async function post(page: Page, messages: string[]): Promise<number> {
-  if (page.isClosed() || messages.length === 0) return 0;
+export interface PostResult {
+  sent: number;
+  /** Which step failed, in words; null when everything was sent. */
+  why: string | null;
+}
 
-  const chatButton = await resolveFirst(page, INCALL_CHAT_BUTTON, 4_000);
-  if (!chatButton) return 0;
+const short = (err: unknown) => (err as Error).message.split('\n')[0]?.slice(0, 140) ?? 'unknown error';
+
+async function post(page: Page, messages: string[]): Promise<PostResult> {
+  if (page.isClosed()) return { sent: 0, why: 'the page was already closed' };
+  if (messages.length === 0) return { sent: 0, why: null };
+
+  // Meet fades out its bottom controls after a few idle seconds, and the chat
+  // button lives there. Nudge the pointer to bring them back, and try again a
+  // couple of times before giving up.
+  let chatButton = null as Awaited<ReturnType<typeof resolveFirst>>;
+  for (let attempt = 0; attempt < 3 && !chatButton; attempt += 1) {
+    await page.mouse.move(640 + attempt * 20, 720).catch(() => {});
+    await page.mouse.move(660 + attempt * 20, 760, { steps: 4 }).catch(() => {});
+    chatButton = await resolveFirst(page, INCALL_CHAT_BUTTON, 2_500);
+  }
+  if (!chatButton) return { sent: 0, why: 'the chat button was not found on the page, even after waking the controls' };
 
   try {
     await chatButton.locator.click({ timeout: 3_000 });
-  } catch {
-    return 0;
+  } catch (err) {
+    return { sent: 0, why: `clicking the chat button failed: ${short(err)}` };
   }
 
   const input = await resolveFirst(page, INCALL_CHAT_INPUT, 5_000);
-  if (!input) return 0;
+  if (!input) return { sent: 0, why: 'the chat box did not appear after opening chat' };
 
   let sent = 0;
+  let why: string | null = null;
   for (const message of messages) {
     try {
       await input.locator.fill(message, { timeout: 3_000 });
@@ -55,18 +73,20 @@ async function post(page: Page, messages: string[]): Promise<number> {
 
       await page.waitForTimeout(500);
       sent += 1;
-    } catch {
+    } catch (err) {
+      why = `typing or sending message ${sent + 1} failed: ${short(err)}`;
       break;
     }
   }
 
   // Close the panel so it doesn't obscure the controls we poll later.
   await chatButton.locator.click({ timeout: 2_000 }).catch(() => {});
-  return sent;
+  return { sent, why };
 }
 
-export async function announce(page: Page, message: string): Promise<boolean> {
-  return (await post(page, [message])) === 1;
+export async function announce(page: Page, message: string): Promise<{ ok: boolean; why: string | null }> {
+  const result = await post(page, [message]);
+  return { ok: result.sent === 1, why: result.why };
 }
 
 /**
@@ -79,6 +99,7 @@ export async function announce(page: Page, message: string): Promise<boolean> {
 export async function postSummary(
   page: Page,
   lines: string[],
-): Promise<{ sent: number; total: number }> {
-  return { sent: await post(page, lines), total: lines.length };
+): Promise<{ sent: number; total: number; why: string | null }> {
+  const result = await post(page, lines);
+  return { sent: result.sent, total: lines.length, why: result.why };
 }

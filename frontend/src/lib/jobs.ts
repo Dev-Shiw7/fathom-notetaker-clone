@@ -72,7 +72,7 @@ export async function enqueueJob(input: {
     id: `job-${randomUUID().slice(0, 12)}`,
     meetingUrl: input.meetingUrl,
     meetingCode: extractMeetingCode(input.meetingUrl),
-    botName: input.botName ?? 'Notetaker',
+    botName: input.botName ?? 'Recall',
     status: 'queued',
     source: input.source ?? 'manual',
     calendarEventId: input.calendarEventId ?? null,
