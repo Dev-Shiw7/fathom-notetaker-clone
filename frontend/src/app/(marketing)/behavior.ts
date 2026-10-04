@@ -219,7 +219,12 @@ $$('.cell').forEach(c=>c.addEventListener('pointermove',e=>{const r=c.getBoundin
   const ws=$$('.w',hl);
   const caret=document.createElement('span');caret.className='caret';caret.setAttribute('aria-hidden','true');
   if(reduce){ws.forEach(w=>w.classList.add('on'));hl.lastElementChild.appendChild(caret)}
-  else ws.forEach((w,i)=>setTimeout(()=>{w.classList.add('on');if(i===ws.length-1)setTimeout(()=>hl.lastElementChild.appendChild(caret),500)},450+i*210));
+  else{
+    const reveal=()=>ws.forEach((w,i)=>setTimeout(()=>{w.classList.add('on');if(i===ws.length-1)setTimeout(()=>hl.lastElementChild.appendChild(caret),500)},450+i*210));
+    /* The splash covers the page for its first two seconds; start the headline once it has gone. */
+    if(document.documentElement.dataset.splash==='on')window.addEventListener('recall:splash-done',reveal,{once:true});
+    else reveal();
+  }
 
   const tiles=$('#tiles'),cap=$('#cap'),clock=$('#roomClock'),mc=$('#momCount'),hero=$('#top');
   tiles.innerHTML=ORDER.map(tile).join('');

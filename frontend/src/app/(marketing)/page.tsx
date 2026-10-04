@@ -1,5 +1,11 @@
 import { Landing } from './Landing';
+import { Splash } from './Splash';
 
 export default function HomePage() {
-  return <Landing />;
+  return (
+    <>
+      <Splash />
+      <Landing />
+    </>
+  );
 }
